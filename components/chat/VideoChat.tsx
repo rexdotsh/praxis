@@ -50,7 +50,6 @@ type Props = {
   title?: string;
   description?: string;
   channel?: string;
-  youtubeId?: string;
 };
 
 const models = [
@@ -68,7 +67,6 @@ export default function VideoChat({
   title,
   description,
   channel,
-  youtubeId,
 }: Props) {
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>(models[0].value);
@@ -95,18 +93,6 @@ export default function VideoChat({
 
   const minPastMs = 5 * 60 * 1000;
   const hasFiveMinutesPlayed = player.currentTimeMs >= minPastMs;
-  const latestChapterStartMs =
-    chapters
-      .slice()
-      .reverse()
-      .find((c) => c.startMs <= player.currentTimeMs)?.startMs ?? undefined;
-  const minutesSinceChapterStart =
-    latestChapterStartMs == null
-      ? 0
-      : Math.max(
-          0,
-          Math.floor((player.currentTimeMs - latestChapterStartMs) / 60000),
-        );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
