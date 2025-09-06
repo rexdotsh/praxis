@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import YouTube from 'youtube-sr';
-import { generateTextOnce } from '@/lib/ai';
+import { generateTextOnce, openrouter } from '@/lib/ai';
+import { generateObject } from 'ai';
+import { z } from 'zod';
 
 type Candidate = {
   id: string;
   title: string;
   url: string;
   channel: string;
-  durationMs?: number;
+  durationFormatted?: string;
   views?: number;
   thumbnailUrl?: string;
 };
@@ -50,6 +52,7 @@ export async function POST(req: NextRequest) {
     const candidates: Candidate[] = raw
       .filter((v) => {
         if (!v.id) return false;
+        if (v.shorts === true) return false;
         const uploadedAtMs = parseUploadedAtToMs(v.uploadedAt);
         return uploadedAtMs ? uploadedAtMs >= threeYearsAgo : true;
       })
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
         title: v.title ?? '',
         url: v.url,
         channel: v.channel?.name ?? '',
-        durationMs: v.duration ?? undefined,
+        durationFormatted: v.durationFormatted ?? undefined,
         views: v.views ?? undefined,
         thumbnailUrl: v.thumbnail?.url ?? undefined,
       }));
@@ -74,14 +77,24 @@ export async function POST(req: NextRequest) {
 
     let parsed: { picks: Array<{ id: string; reason: string }> } | null = null;
     try {
-      const jsonText = await generateTextOnce({
-        model: SEARCH_RANKING_MODEL,
+      const { object } = await generateObject({
+        model: openrouter.chat(SEARCH_RANKING_MODEL),
         system: selectionSystem,
+        schema: z.object({
+          picks: z
+            .array(
+              z.object({
+                id: z.string(),
+                reason: z.string().optional().default(''),
+              }),
+            )
+            .min(1)
+            .max(FINAL_PICKS),
+        }),
         prompt: selectionPrompt,
-        temperature: 0.4,
-        maxTokens: 600,
       });
-      parsed = safeParsePicks(jsonText);
+      parsed = { picks: object.picks.slice(0, FINAL_PICKS) };
+      console.log('parsed', parsed);
     } catch {}
 
     // 4) If AI fails, fallback to heuristic top 5
@@ -107,25 +120,6 @@ export async function POST(req: NextRequest) {
     });
   } catch {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
-  }
-}
-
-function safeParsePicks(
-  text: string,
-): { picks: Array<{ id: string; reason: string }> } | null {
-  try {
-    const cleaned = text.trim().replace(/^```json\n?|```$/g, '');
-    const parsed = JSON.parse(cleaned) as {
-      picks?: Array<{ id: string; reason?: string }>;
-    };
-    if (!Array.isArray(parsed.picks)) return null;
-    return {
-      picks: parsed.picks
-        .filter((p) => p && typeof p.id === 'string')
-        .map((p) => ({ id: p.id, reason: p.reason ?? '' })),
-    };
-  } catch {
-    return null;
   }
 }
 
