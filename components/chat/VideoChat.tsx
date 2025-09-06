@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import {
   Conversation,
@@ -72,22 +72,26 @@ export default function VideoChat({
   const player = useVideoPlayer();
   const { messages, sendMessage, status } = useChat();
 
-  const transcriptSlice = useMemo(() => {
-    if (!transcript || transcript.length === 0) return null;
-    return getWindowByMinutes(transcript, player.currentTimeMs, contextMinutes);
-  }, [transcript, player.currentTimeMs, contextMinutes]);
+  const minPastMs = 5 * 60 * 1000;
+  const hasFiveMinutesPlayed = player.currentTimeMs >= minPastMs;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
+    const contextText = getWindowByMinutes(
+      transcript ?? [],
+      player.currentTimeMs,
+      contextMinutes,
+    ).text;
+
     sendMessage(
       { text },
       {
         body: {
           model,
           webSearch,
-          transcriptContext: transcriptSlice?.text ?? '',
+          transcriptContext: contextText,
           contextSpec: { type: 'minutes', value: contextMinutes },
           chapters,
           meta: { title, description, channel },
@@ -98,13 +102,19 @@ export default function VideoChat({
   };
 
   const handleSuggestionClick = (s: string) => {
+    const contextText = getWindowByMinutes(
+      transcript ?? [],
+      player.currentTimeMs,
+      contextMinutes,
+    ).text;
+
     sendMessage(
       { text: s },
       {
         body: {
           model,
           webSearch,
-          transcriptContext: transcriptSlice?.text ?? '',
+          transcriptContext: contextText,
           contextSpec: { type: 'minutes', value: contextMinutes },
           chapters,
           meta: { title, description, channel },
@@ -240,6 +250,7 @@ export default function VideoChat({
             <PromptInputModelSelect
               onValueChange={(v) => setContextMinutes(Number(v))}
               value={String(contextMinutes)}
+              disabled={!hasFiveMinutesPlayed}
             >
               <PromptInputModelSelectTrigger>
                 <PromptInputModelSelectValue
@@ -258,6 +269,12 @@ export default function VideoChat({
           <PromptInputSubmit disabled={!input.trim()} status={status} />
         </PromptInputToolbar>
       </PromptInput>
+      {!hasFiveMinutesPlayed && (
+        <div className="mt-2 text-xs text-muted-foreground">
+          Start the video and watch at least 5 minutes to enable transcript
+          context.
+        </div>
+      )}
     </div>
   );
 }

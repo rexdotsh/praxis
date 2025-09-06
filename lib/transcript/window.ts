@@ -9,6 +9,11 @@ export function getWindowByMinutes(
   if (!Array.isArray(transcript) || transcript.length === 0) {
     return { text: '', startMs: 0, endMs: 0 };
   }
+  // Require a minimum of 5 minutes of playback before enabling context
+  const MIN_PAST_MS = 5 * 60 * 1000;
+  if (currentTimeMs < MIN_PAST_MS) {
+    return { text: '', startMs: 0, endMs: currentTimeMs };
+  }
   const windowStart = Math.max(0, currentTimeMs - minutes * 60 * 1000);
   const windowEnd = currentTimeMs;
   const slice = transcript.filter((t) => {

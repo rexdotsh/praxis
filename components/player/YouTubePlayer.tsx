@@ -3,13 +3,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import YouTubePlayerPlus from 'youtube-player-plus';
 import { VideoPlayerProvider } from './VideoPlayerProvider';
+import type { VideoPlayerContextValue } from './VideoPlayerProvider';
 
 type Props = {
   videoId: string;
   className?: string;
+  useExternalProvider?: boolean;
+  onContextChange?: (value: VideoPlayerContextValue) => void;
 };
 
-export default function YouTubePlayer({ videoId, className }: Props) {
+export default function YouTubePlayer({
+  videoId,
+  className,
+  useExternalProvider,
+  onContextChange,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YouTubePlayerPlus | null>(null);
   const [status, setStatus] = useState<
@@ -21,6 +29,7 @@ export default function YouTubePlayer({ videoId, className }: Props) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+
     const player = new YouTubePlayerPlus(containerRef.current, {
       width: 1280,
       height: 720,
@@ -34,15 +43,28 @@ export default function YouTubePlayer({ videoId, className }: Props) {
       const d = player.duration ?? player.getDuration?.();
       if (typeof d === 'number' && Number.isFinite(d)) setDurationMs(d * 1000);
     });
-    player.on('cued', () => setStatus('cued'));
-    player.on('playing', () => setStatus('playing'));
-    player.on('paused', () => setStatus('paused'));
-    player.on('buffering', () => setStatus('buffering'));
-    player.on('ended', () => setStatus('ended'));
-    player.on('timeupdate', (sec: number) =>
-      setCurrentTimeMs(Math.max(0, Math.round(sec * 1000))),
-    );
-    player.on('playbackRateChange', (rate: number) => setPlaybackRate(rate));
+    player.on('cued', () => {
+      setStatus('cued');
+    });
+    player.on('playing', () => {
+      setStatus('playing');
+    });
+    player.on('paused', () => {
+      setStatus('paused');
+    });
+    player.on('buffering', () => {
+      setStatus('buffering');
+    });
+    player.on('ended', () => {
+      setStatus('ended');
+    });
+    player.on('timeupdate', (sec: number) => {
+      const ms = Math.max(0, Math.round(sec * 1000));
+      setCurrentTimeMs(ms);
+    });
+    player.on('playbackRateChange', (rate: number) => {
+      setPlaybackRate(rate);
+    });
 
     player.load(videoId);
 
@@ -89,12 +111,27 @@ export default function YouTubePlayer({ videoId, className }: Props) {
       playbackRate,
       play: () => playerRef.current?.play(),
       pause: () => playerRef.current?.pause(),
-      seekToMs: (ms: number) => playerRef.current?.seek(ms / 1000),
+      seekToMs: (ms: number) => {
+        const r = playerRef.current?.seek(ms / 1000);
+        // Optimistically reflect seek position even if no timeupdate fires while paused
+        setCurrentTimeMs(ms);
+        return r;
+      },
       setPlaybackRate: (rate: number) =>
         playerRef.current?.setPlaybackRate(rate),
     }),
     [videoId, status, currentTimeMs, durationMs, playbackRate],
   );
+
+  useEffect(() => {
+    if (onContextChange) {
+      onContextChange(value);
+    }
+  }, [value, onContextChange]);
+
+  if (useExternalProvider) {
+    return <div ref={containerRef} className={className} />;
+  }
 
   return (
     <VideoPlayerProvider value={value}>
