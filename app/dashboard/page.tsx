@@ -2,11 +2,20 @@
 
 import { useUser } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { useEffect, useMemo, useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import DatesheetsForm from '@/components/datesheets/DatesheetsForm';
+import { Plus } from 'lucide-react';
 
 export default function DashboardPage() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -39,9 +48,9 @@ export default function DashboardPage() {
         </h1>
       </header>
       <div className="flex flex-1 flex-col justify-end gap-4 p-4 pt-0 pb-8">
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3 relative">
           <DashboardDatesheetsCard />
-          <div className="bg-muted/50 h-96 rounded-xl md:col-span-2" />
+          <UpcomingExamsCard />
           <div className="bg-muted/50 h-72 rounded-xl md:col-span-2" />
           <div className="bg-muted/50 h-72 rounded-xl md:col-span-1" />
         </div>
@@ -81,6 +90,103 @@ function DashboardDatesheetsCard() {
             <a href="/datesheets">
               <Button size="sm">Create new</Button>
             </a>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UpcomingExamsCard() {
+  const items =
+    useQuery(api.datesheets.listUpcomingItemsByUser, { limit: 10 }) ?? [];
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
+  const removeExam = useMutation(api.datesheets.removeExam);
+
+  return (
+    <Card className="md:col-span-2 h-96">
+      <CardContent className="p-4 h-full">
+        <div className="flex h-full flex-col relative">
+          <div className="mb-2 text-sm text-muted-foreground">
+            Upcoming exams
+          </div>
+          {items.length === 0 ? (
+            <div className="text-sm">No upcoming exams</div>
+          ) : (
+            <ul className="space-y-2 overflow-auto pr-1">
+              {items.map((it, idx) => {
+                const isOpen = openIdx === idx;
+                const label =
+                  it.title && it.title !== it.subject
+                    ? `${it.title}: ${it.subject}`
+                    : it.subject;
+                return (
+                  <li
+                    key={`${it.datesheetId}-${it.examDate}`}
+                    className="rounded-md border"
+                  >
+                    <button
+                      type="button"
+                      className="w-full flex items-center justify-between p-2 text-left hover:bg-muted/50"
+                      onClick={() =>
+                        setOpenIdx((prev) => (prev === idx ? null : idx))
+                      }
+                    >
+                      <span className="font-medium truncate mr-2" title={label}>
+                        {label}
+                      </span>
+                      <span className="text-sm tabular-nums text-muted-foreground">
+                        {it.examDate}
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="px-3 pb-3">
+                        {it.syllabus.length > 0 && (
+                          <ul className="list-disc pl-5 space-y-1 text-sm">
+                            {it.syllabus.map((s) => (
+                              <li key={s}>{s}</li>
+                            ))}
+                          </ul>
+                        )}
+                        <div className="mt-2">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              await removeExam({
+                                datesheetId: it.datesheetId,
+                                subject: it.subject,
+                                examDate: it.examDate,
+                              });
+                            }}
+                            title="Delete this exam"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {/* plus button*/}
+          <div className="absolute right-7 bottom-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button size="icon" className="h-12 w-12 rounded-full shadow">
+                  <Plus className="h-6 w-6" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
+                <DialogHeader>
+                  <DialogTitle>Upload syllabus / datesheet</DialogTitle>
+                </DialogHeader>
+                <DatesheetsForm onSaved={() => location.reload()} />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </CardContent>
