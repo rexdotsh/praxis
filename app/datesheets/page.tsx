@@ -24,27 +24,42 @@ type ParsedItem = { subject: string; examDate: string; syllabus?: string[] };
 export default function DatesheetsPage() {
   const create = useMutation(api.datesheets.create);
   const router = useRouter();
-  const [file, setFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Array<File>>([]);
   const [uploading, setUploading] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [title, setTitle] = useState('');
-  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<
+    Array<{ url: string; name: string; contentType: string }>
+  >([]);
   const [rows, setRows] = useState<ParsedItem[]>([]);
 
   async function onUpload() {
-    if (!file) return;
+    if (selectedFiles.length === 0) return;
     setUploading(true);
     try {
-      const form = new FormData();
-      form.append('file', file);
-      const res = await fetch('/api/blob/upload', {
-        method: 'POST',
-        body: form,
-      });
-      if (!res.ok) throw new Error('upload failed');
-      const data = (await res.json()) as { url: string };
-      setFileUrl(data.url);
-      toast.success('Uploaded');
+      const uploaded: Array<{
+        url: string;
+        name: string;
+        contentType: string;
+      }> = [];
+      for (const file of selectedFiles) {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch('/api/blob/upload', {
+          method: 'POST',
+          body: form,
+        });
+        if (!res.ok) throw new Error('upload failed');
+        const data = (await res.json()) as { url: string };
+        uploaded.push({
+          url: data.url,
+          name: file.name,
+          contentType: file.type,
+        });
+      }
+      setAttachments((prev) => [...prev, ...uploaded]);
+      setSelectedFiles([]);
+      toast.success(`Uploaded ${uploaded.length} file(s)`);
     } catch {
       toast.error('Upload failed');
     } finally {
@@ -53,13 +68,27 @@ export default function DatesheetsPage() {
   }
 
   async function onParse() {
-    if (!fileUrl) return;
+    if (attachments.length === 0) return;
     setParsing(true);
     try {
+      const pdfUrls = attachments
+        .filter(
+          (a) =>
+            a.contentType === 'application/pdf' ||
+            a.name.toLowerCase().endsWith('.pdf'),
+        )
+        .map((a) => a.url);
+      const imageUrls = attachments
+        .filter(
+          (a) =>
+            a.contentType.startsWith('image/') &&
+            !a.name.toLowerCase().endsWith('.pdf'),
+        )
+        .map((a) => a.url);
       const res = await fetch('/api/datesheets/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileUrl }),
+        body: JSON.stringify({ fileUrls: pdfUrls, imageUrls }),
       });
       if (!res.ok) throw new Error('parse failed');
       const data = (await res.json()) as {
@@ -90,10 +119,12 @@ export default function DatesheetsPage() {
         toast.error('Add at least one valid row');
         return;
       }
+      const primarySourceUrl = attachments[0]?.url;
       await create({
         title: title.trim() || 'Datesheet',
         sourceType,
-        fileUrl: sourceType === 'upload' ? (fileUrl ?? undefined) : undefined,
+        fileUrl:
+          sourceType === 'upload' ? (primarySourceUrl ?? undefined) : undefined,
         items: cleaned,
       });
       toast.success('Saved');
@@ -139,20 +170,103 @@ export default function DatesheetsPage() {
                   <Input
                     type="file"
                     accept="application/pdf,image/*"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    multiple
+                    onChange={(e) => {
+                      const files = Array.from(e.currentTarget.files ?? []);
+                      if (files.length === 0) return;
+                      setSelectedFiles((prev) => [...prev, ...files]);
+                      e.currentTarget.value = '';
+                    }}
                   />
                   <div className="flex gap-2">
-                    <Button onClick={onUpload} disabled={!file || uploading}>
-                      {uploading ? 'Uploading…' : 'Upload'}
+                    <Button
+                      onClick={onUpload}
+                      disabled={selectedFiles.length === 0 || uploading}
+                    >
+                      {uploading ? 'Uploading…' : 'Upload selected'}
                     </Button>
                     <Button
                       onClick={onParse}
-                      disabled={!fileUrl || parsing}
+                      disabled={attachments.length === 0 || parsing}
                       variant="secondary"
                     >
                       {parsing ? 'Parsing…' : 'Parse with AI'}
                     </Button>
                   </div>
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      <div className="text-sm font-medium">
+                        Selected files (not uploaded yet)
+                      </div>
+                      <ul className="space-y-1">
+                        {selectedFiles.map((f, i) => (
+                          <li
+                            key={`${f.name}-${f.size}-${f.lastModified}`}
+                            className="flex items-center justify-between gap-2 text-sm"
+                          >
+                            <span className="truncate" title={f.name}>
+                              {f.name}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setSelectedFiles((prev) =>
+                                  prev.filter((_, idx) => idx !== i),
+                                )
+                              }
+                            >
+                              Remove
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                      <div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSelectedFiles([])}
+                          disabled={uploading}
+                        >
+                          Clear selected
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {attachments.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      <div className="text-sm font-medium">Attached files</div>
+                      <ul className="space-y-1">
+                        {attachments.map((a, i) => (
+                          <li
+                            key={`${a.url}-${i}`}
+                            className="flex items-center justify-between gap-2 text-sm"
+                          >
+                            <a
+                              href={a.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="truncate underline"
+                              title={a.name}
+                            >
+                              {a.name}
+                            </a>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() =>
+                                setAttachments((prev) =>
+                                  prev.filter((_, idx) => idx !== i),
+                                )
+                              }
+                            >
+                              Remove
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
