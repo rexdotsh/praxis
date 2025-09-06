@@ -1,13 +1,7 @@
 'use client';
 
-import {
-  SignedIn,
-  SignedOut,
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  ClerkLoading,
-} from '@clerk/nextjs';
+import { Authenticated, Unauthenticated, AuthLoading } from 'convex/react';
+import { SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { usePathname } from 'next/navigation';
 
@@ -17,10 +11,10 @@ export function SiteHeader() {
   return (
     <header className="flex justify-end p-4 border-b border-border">
       <div className="w-full flex justify-end">
-        <ClerkLoading>
+        <AuthLoading>
           <div className="h-7 w-[50px] animate-pulse rounded-md bg-muted" />
-        </ClerkLoading>
-        <SignedOut>
+        </AuthLoading>
+        <Unauthenticated>
           <div className="flex gap-2">
             <SignInButton mode="modal">
               <Button type="button" size="sm">
@@ -33,10 +27,10 @@ export function SiteHeader() {
               </Button>
             </SignUpButton>
           </div>
-        </SignedOut>
-        <SignedIn>
+        </Unauthenticated>
+        <Authenticated>
           <UserButton />
-        </SignedIn>
+        </Authenticated>
       </div>
     </header>
   );
