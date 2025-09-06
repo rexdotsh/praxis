@@ -5,8 +5,9 @@ import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import ConvexClientProvider from '@/components/ConvexClientProvider';
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
+import SidebarRootProvider from '@/components/SidebarRootProvider';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -38,10 +39,10 @@ export default function RootLayout({
       >
         <ClerkProvider>
           <ConvexClientProvider>
-            <SidebarProvider>
-              <AppSidebar />
+            <SidebarRootProvider>
+              <AppSidebar collapsible="icon" />
               <SidebarInset>{children}</SidebarInset>
-            </SidebarProvider>
+            </SidebarRootProvider>
           </ConvexClientProvider>
         </ClerkProvider>
         <Toaster position="top-right" richColors />
