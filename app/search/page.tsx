@@ -8,6 +8,7 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
+import { useRouter } from 'next/navigation';
 
 type Pick = {
   id: string;
@@ -21,6 +22,7 @@ type Pick = {
 };
 
 export default function SearchPage() {
+  const router = useRouter();
   const [query, setQuery] = useState('');
   const [submittedQuery, setSubmittedQuery] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,7 +77,7 @@ export default function SearchPage() {
       });
       await createSelection({ searchId, videoId, reason: p.reason });
       toast.success('Saved selection');
-      // TODO: navigate to next page for transcript flow in future
+      router.push(`/watch/${p.id}`);
     } catch {
       toast.error('Failed to save selection');
     }
