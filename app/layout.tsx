@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { SiteHeader } from '@/components/site-header';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
+import { Analytics } from '@vercel/analytics/react';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -37,6 +38,7 @@ export default function RootLayout({
           <SiteHeader />
           {children}
           <Toaster position="top-right" richColors />
+          <Analytics basePath="/monitor" />
         </body>
       </html>
     </ClerkProvider>

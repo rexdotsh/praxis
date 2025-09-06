@@ -1,0 +1,8 @@
+{
+    "rewrites": [
+        {
+            "source": "/monitor/:match*",
+            "destination": "https://app.praxis.rex.wf/_vercel/:match*"
+        }
+    ]
+}
