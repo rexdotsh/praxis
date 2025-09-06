@@ -9,8 +9,7 @@
       "node_modules",
       ".next",
       ".vercel",
-      "public",
-      "lib/generated/prisma-client"
+      "public"
     ]
   },
   "vcs": {
