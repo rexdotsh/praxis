@@ -4,6 +4,7 @@ import YouTube from 'youtube-sr';
 import { generateTextOnce, openrouter } from '@/lib/ai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { auth } from '@clerk/nextjs/server';
 
 type Candidate = {
   id: string;
@@ -27,13 +28,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing query' }, { status: 400 });
     }
 
+    // Pull learner profile from Clerk session claims if available
+    const { sessionClaims } = await auth();
+    const learnerProfile = sessionClaims?.metadata
+      ? {
+          grade: (sessionClaims.metadata as any).grade ?? null,
+          exams: (sessionClaims.metadata as any).exams ?? null,
+          subjects: (sessionClaims.metadata as any).subjects ?? null,
+        }
+      : null;
+
     // 1) Refine query
     const refinedQuery = (
       await generateTextOnce({
         model: SEARCH_RANKING_MODEL,
         system:
-          'You are an expert learning coach. Rewrite user queries for YouTube search to maximize educational relevance and clarity. Keep it concise; no punctuation if unnecessary.',
-        prompt: `User query: "${query}"\nReturn only the improved search query.`,
+          'You are an expert learning coach. Rewrite user queries for YouTube search to maximize educational relevance and clarity. If a learner profile is provided (grade, exams, subjects), tailor the query to that context. Keep it concise; no punctuation if unnecessary.',
+        prompt: JSON.stringify({ query, learnerProfile }),
         temperature: 0.2,
         maxTokens: 64,
       })
@@ -68,12 +79,15 @@ export async function POST(req: NextRequest) {
 
     // 3) Ask AI to pick best 5
     const selectionSystem =
-      'You are an educational curator. Given a refined topic and a list of YouTube candidates with metadata, pick the top 5 videos that best teach the topic. Balance clarity, relevance, quality, and prefer newer videos. Diversity is optional (multiple from same channel allowed). Provide very short reasons (<=140 chars). Return strict JSON with an array of {id, reason}.';
+      'You are an educational curator. Given a refined topic, an optional learner profile (grade, exams, subjects), and a list of YouTube candidates with metadata, pick the top 5 videos that best teach the topic for this learner. Optimize for clarity, relevance to the profile, production quality, and prefer newer videos. Diversity is optional (multiple from same channel allowed). Provide very short reasons (<=140 chars). Return strict JSON with an array of {id, reason}.';
     const selectionPrompt = JSON.stringify({
       refinedQuery,
+      learnerProfile,
       candidates,
       k: FINAL_PICKS,
     });
+
+    console.log('selectionPrompt', selectionPrompt);
 
     let parsed: { picks: Array<{ id: string; reason: string }> } | null = null;
     try {
