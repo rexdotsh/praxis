@@ -9,7 +9,10 @@
       "node_modules",
       ".next",
       ".vercel",
-      "public"
+      "public",
+      "knip.json",
+      "package.json",
+      "vercel.json"
     ]
   },
   "vcs": {
