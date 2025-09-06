@@ -1,8 +1,9 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 
 export default async function DashboardPage() {
   const { userId, sessionClaims } = await auth();
+  const user = await currentUser();
 
   if (!userId) {
     redirect('/');
@@ -12,18 +13,23 @@ export default async function DashboardPage() {
     redirect('/onboarding');
   }
 
-  // const userMetadata = sessionClaims.metadata;
+  const greetingName =
+    user?.firstName ?? user?.fullName ?? user?.username ?? 'there';
 
   return (
     <>
-      <header className="flex h-16 shrink-0 items-center gap-2" />
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-          <div className="bg-muted/50 aspect-video rounded-xl" />
-          <div className="bg-muted/50 aspect-video rounded-xl" />
-          <div className="bg-muted/50 aspect-video rounded-xl" />
+      <header className="flex h-32 shrink-0 items-start justify-start p-4 pt-8 pl-8">
+        <h1 className="text-6xl font-bold tracking-tight">
+          Hi, {greetingName}!
+        </h1>
+      </header>
+      <div className="flex flex-1 flex-col justify-end gap-4 p-4 pt-0 pb-8">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="bg-muted/50 h-96 rounded-xl md:col-span-1" />
+          <div className="bg-muted/50 h-96 rounded-xl md:col-span-2" />
+          <div className="bg-muted/50 h-72 rounded-xl md:col-span-2" />
+          <div className="bg-muted/50 h-72 rounded-xl md:col-span-1" />
         </div>
-        <div className="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
       </div>
     </>
   );
