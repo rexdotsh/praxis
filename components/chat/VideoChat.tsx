@@ -146,6 +146,40 @@ export default function VideoChat({
           another video with captions.
         </div>
       )}
+      <div className="pt-2 flex items-center justify-between">
+        <div>
+          {!!youtubeId && !!transcript && (
+            <QuizDialog
+              youtubeId={youtubeId}
+              hasChapters={chapters.length > 0}
+              latestChapterStartMs={latestChapterStartMs}
+              hasFiveMinutesPlayed={hasFiveMinutesPlayed}
+              minutesSinceChapterStart={minutesSinceChapterStart}
+              meta={{ title, description, channel }}
+              transcriptContextBuilder={(mins) =>
+                getWindowByMinutes(transcript ?? [], player.currentTimeMs, mins)
+                  .text
+              }
+              trigger={
+                <PromptInputButton
+                  className="h-10 px-6 text-base"
+                  variant="default"
+                >
+                  Quiz
+                </PromptInputButton>
+              }
+            />
+          )}
+        </div>
+        <div className="min-w-0 max-w-[160px]">
+          <PromptInputButton
+            className="h-10 px-4 text-base w-full truncate"
+            variant="secondary"
+          >
+            Flashcards
+          </PromptInputButton>
+        </div>
+      </div>
       <Conversation className="h-full">
         <ConversationContent>
           {messages.map((message) => (
@@ -280,26 +314,6 @@ export default function VideoChat({
                 ))}
               </PromptInputModelSelectContent>
             </PromptInputModelSelect>
-            {!!youtubeId && !!transcript && (
-              <QuizDialog
-                youtubeId={youtubeId}
-                hasChapters={chapters.length > 0}
-                latestChapterStartMs={latestChapterStartMs}
-                hasFiveMinutesPlayed={hasFiveMinutesPlayed}
-                minutesSinceChapterStart={minutesSinceChapterStart}
-                meta={{ title, description, channel }}
-                transcriptContextBuilder={(mins) =>
-                  getWindowByMinutes(
-                    transcript ?? [],
-                    player.currentTimeMs,
-                    mins,
-                  ).text
-                }
-                trigger={
-                  <PromptInputButton variant="default">Quiz</PromptInputButton>
-                }
-              />
-            )}
           </PromptInputTools>
           <PromptInputSubmit disabled={!input.trim()} status={status} />
         </PromptInputToolbar>
