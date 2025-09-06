@@ -21,15 +21,30 @@ export async function POST(req: Request) {
 
     const schema = z.object({ suggestions: z.array(z.string()).length(5) });
 
-    const system =
-      'You generate 5 short, clickable suggestions for a learning chat about a YouTube video.';
+    const system = `You craft 5 short, clickable learning prompts tailored to one YouTube video.
+
+Quality:
+- Distinct, concrete, actionable; active voice; no fluff.
+
+Constraints:
+- Under 80 characters.
+- No numbering, quotes, emojis, hashtags, or trailing punctuation.
+- Do not use the words “video”, “YouTube”, “transcript”, or “prompt”. Do not go out of the context of the video.
+- Vary intent (explain, compare, apply, critique, steps, real-world).
+- Ground with relevant topic terms; keep factual and concise.
+
+Output:
+- Exactly 5 suggestions satisfying all constraints.`;
+
     const prompt = [
+      'Context:',
       `Title: ${title}`,
-      description ? `Description: ${description}` : null,
+      description ? `Description: ${description.slice(0, 800)}` : null,
       transcriptSample
-        ? `Transcript sample: ${transcriptSample.slice(0, 4000)}`
+        ? `Transcript (truncated):\n${transcriptSample.slice(0, 4000)}`
         : null,
-      'Return diverse, brief suggestions (under 80 chars). No numbering, no punctuation at end.',
+      'Task: Write 5 diverse, concrete prompts that meet the constraints.',
+      'Respond with only {"suggestions": string[5]}.',
     ]
       .filter(Boolean)
       .join('\n');
