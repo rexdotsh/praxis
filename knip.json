@@ -1,0 +1,13 @@
+{
+    "ignore": [
+        "components/ui/**",
+        "lib/i18n/**"
+    ],
+    "ignoreDependencies": [
+        "lefthook",
+        "@prisma/client",
+        "tailwindcss",
+        "tw-animate-css",
+        "postcss"
+    ]
+}
