@@ -14,6 +14,8 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Authenticated, Unauthenticated, AuthLoading } from 'convex/react';
 import { SignInButton, SignUpButton, useUser } from '@clerk/nextjs';
@@ -63,18 +65,34 @@ function SidebarUser() {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  if (pathname !== '/dashboard') return null;
+  const { state } = useSidebar();
+  const isCollapsed = state === 'collapsed';
+  if (pathname.startsWith('/onboarding')) return null;
 
   return (
     <Sidebar {...props}>
       <SidebarHeader>
-        <SidebarBrand />
+        <div className="flex items-center justify-between">
+          <SidebarBrand />
+          <SidebarTrigger
+            aria-label="Collapse sidebar"
+            title="Collapse"
+            className="group-data-[collapsible=icon]:hidden"
+          />
+        </div>
       </SidebarHeader>
       <SidebarSeparator className="mx-0" />
       <SidebarContent />
       <SidebarFooter>
-        <DatePicker />
-        <SidebarSeparator className="mx-0" />
+        <div className="hidden items-center justify-center group-data-[collapsible=icon]:flex">
+          <SidebarTrigger aria-label="Expand sidebar" title="Expand" />
+        </div>
+        {!isCollapsed && (
+          <>
+            <DatePicker />
+            <SidebarSeparator className="mx-0" />
+          </>
+        )}
         <AuthLoading>
           <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
         </AuthLoading>
