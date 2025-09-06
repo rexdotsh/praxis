@@ -13,6 +13,8 @@ type Props = {
   title: string;
   channel: string;
   description?: string;
+  uploadedAt?: string | null;
+  views?: number | null;
   transcript: TranscriptItem[] | null;
 };
 
@@ -21,6 +23,8 @@ export default function WatchClient({
   title,
   channel,
   description,
+  uploadedAt,
+  views,
   transcript,
 }: Props) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -100,6 +104,23 @@ export default function WatchClient({
                   />
                 </CardContent>
               </Card>
+              <div className="mb-4 px-1">
+                <h1 className="text-2xl font-semibold leading-tight">
+                  {title}
+                </h1>
+                <div className="mt-0 text-sm text-muted-foreground">
+                  <span>{uploadedAt ?? ''}</span>
+                  {typeof views === 'number' && (
+                    <span>
+                      {' • '}
+                      {new Intl.NumberFormat(undefined, {
+                        notation: 'compact',
+                      }).format(views)}{' '}
+                      views
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           <aside className="lg:border-l lg:pl-4">

@@ -18,7 +18,9 @@ export default async function WatchPage({ params }: Props) {
   const description = video?.description ?? '';
   const title = video?.title ?? 'YouTube Video';
   const channel = video?.channel?.name ?? '';
-  // no-op: views and duration intentionally unused in current UI
+  const uploadedAt =
+    (video as any)?.uploadedAt ?? (video as any)?.uploadDate ?? '';
+  const views = typeof video?.views === 'number' ? video.views : null;
 
   return (
     <WatchClient
@@ -26,6 +28,8 @@ export default async function WatchPage({ params }: Props) {
       title={title}
       channel={channel}
       description={description}
+      uploadedAt={uploadedAt}
+      views={views}
       transcript={transcript}
     />
   );
