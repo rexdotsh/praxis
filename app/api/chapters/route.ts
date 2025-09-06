@@ -14,7 +14,7 @@ function parseChaptersFromDescription(
     const line = rawLine.trim();
     if (!line) continue;
 
-    //match HH:MM:SS or MM:SS and allowing optional spaces around ':'
+    // match HH:MM:SS or MM:SS and allowing optional spaces around ':'
     const match = line.match(
       /\b(?:(\d{1,2})\s*:\s*)?([0-5]?\d)\s*:\s*([0-5]\d)\b/,
     );
@@ -49,7 +49,7 @@ function parseChaptersFromDescription(
   }
 
   chapters.sort((a, b) => a.startMs - b.startMs);
-  return chapters.slice(0, 20);
+  return chapters;
 }
 
 export async function POST(req: Request) {
@@ -75,16 +75,16 @@ export async function POST(req: Request) {
           startMs: z.number().int().nonnegative(),
         }),
       )
-      .min(1)
-      .max(20),
+      .min(1),
   });
 
-  // give priority to timestamps in description parsed via regex first, fallback to transcript based generation if none are found
+  // give priority to timestamps in description parsed via regex first,
+  // fallback to transcript based generation if none are found
   if (typeof description === 'string' && description.trim().length > 0) {
     const parsed = parseChaptersFromDescription(description);
     if (parsed.length >= 1) {
       return Response.json({
-        chapters: parsed.slice(0, 100),
+        chapters: parsed,
         source: 'description',
       });
     }
