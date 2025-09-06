@@ -88,8 +88,6 @@ export async function POST(req: NextRequest) {
       k: FINAL_PICKS,
     });
 
-    console.log('selectionPrompt', selectionPrompt);
-
     let parsed: { picks: Array<{ id: string; reason: string }> } | null = null;
     try {
       const { object } = await generateObject({
@@ -109,7 +107,6 @@ export async function POST(req: NextRequest) {
         prompt: selectionPrompt,
       });
       parsed = { picks: object.picks.slice(0, FINAL_PICKS) };
-      console.log('parsed', parsed);
     } catch {}
 
     // 4) If AI fails, fallback to heuristic top 5
