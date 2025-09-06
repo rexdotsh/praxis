@@ -62,8 +62,11 @@ export async function POST(req: NextRequest) {
       allowedSubjects.length
         ? `Subjects allowed: ${JSON.stringify(
             allowedSubjects,
-          )}. For each detected subject, choose the CLOSEST match from this list using case-insensitive, punctuation-insensitive fuzzy matching (e.g., abbreviations, plurals, spacing). OUTPUT the exact canonical value from the list. If nothing is reasonably close, SKIP that item.`
+          )}. For each detected subject, choose the CLOSEST match from this list using case-insensitive, punctuation-insensitive fuzzy matching (including abbreviations, acronyms, plurals, spacing, truncated names). OUTPUT the exact canonical value from the list. If nothing is reasonably close, SKIP that item.`
         : '',
+      'The datesheet may include subjects outside the allowed list; ignore them.',
+      'If the same exam date is linked to multiple subjects (e.g., OPT-A and OPT-B), include only one by default (prioritize OPT-A). If onboarding specifies that the student has both, then include both. Ensure no duplicate exam dates are created.',
+      'Only include subjects that are part of the student’s chosen subset during onboarding, even if they exist in the allowed subjects list.',
     ]
       .filter(Boolean)
       .join(' ');
