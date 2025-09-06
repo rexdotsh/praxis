@@ -90,8 +90,6 @@ export async function POST(req: NextRequest) {
       subjectSchema = z.union(literals);
     }
 
-    console.log(subjectSchema);
-
     const { object } = await generateObject({
       model: openrouter.chat(MODEL),
       system,

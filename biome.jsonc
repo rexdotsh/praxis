@@ -10,6 +10,7 @@
       ".next",
       ".vercel",
       "public",
+      "convex/_generated",
       "knip.json",
       "package.json",
       "vercel.json"
