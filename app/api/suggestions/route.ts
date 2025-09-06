@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     .join('\n');
 
   const { object } = await generateObject({
-    model: openrouter.chat('openai/gpt-4o-mini'),
+    model: openrouter.chat('openai/gpt-5-chat'),
     system,
     prompt,
     temperature: 0.4,

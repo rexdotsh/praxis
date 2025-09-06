@@ -51,8 +51,8 @@ type Props = {
 };
 
 const models = [
-  { name: 'GPT 4o mini', value: 'openai/gpt-4o-mini' },
-  { name: 'Claude Sonnet', value: 'anthropic/claude-3.5-sonnet' },
+  { name: 'GPT 5 Chat', value: 'openai/gpt-5-chat' },
+  { name: 'Claude Sonnet 4', value: 'anthropic/claude-sonnet-4' },
 ];
 
 const CONTEXT_MINUTES = [5, 10, 15, 20, 25, 30] as const;

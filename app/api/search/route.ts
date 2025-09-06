@@ -16,7 +16,6 @@ type Candidate = {
   thumbnailUrl?: string;
 };
 
-const SEARCH_RANKING_MODEL = 'openai/gpt-4o-mini';
 const MAX_CANDIDATES = 25;
 const FINAL_PICKS = 5;
 
@@ -42,7 +41,7 @@ export async function POST(req: NextRequest) {
     // 1) Refine query
     const refinedQuery = (
       await generateTextOnce({
-        model: SEARCH_RANKING_MODEL,
+        model: 'openai/gpt-5-chat',
         system:
           'You are an expert learning coach. Rewrite user queries for YouTube search to maximize educational relevance and clarity. If a learner profile is provided (grade, exams, subjects), tailor the query to that context. Keep it concise; no punctuation if unnecessary.',
         prompt: JSON.stringify({ query, learnerProfile }),
@@ -91,7 +90,7 @@ export async function POST(req: NextRequest) {
     let parsed: { picks: Array<{ id: string; reason: string }> } | null = null;
     try {
       const { object } = await generateObject({
-        model: openrouter.chat(SEARCH_RANKING_MODEL),
+        model: openrouter.chat('openai/gpt-5-chat'),
         system: selectionSystem,
         schema: z.object({
           picks: z
