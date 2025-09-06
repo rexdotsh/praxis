@@ -16,8 +16,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Upgrad Hackathon',
-  description: 'Submission for the Upgrad Hackathon by team rocket',
+  title: 'Praxis',
+  description:
+    'Transform your learning with AI-curated video lessons, adaptive study paths, and smart flashcards.',
+  authors: [{ name: 'Team Rocket' }],
+  creator: 'Team Rocket',
 };
 
 export default function RootLayout({
