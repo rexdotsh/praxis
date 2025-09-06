@@ -61,7 +61,14 @@ export async function POST(req: Request) {
     if (!token)
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const system = `Create ${numQuestions} multiple-choice questions (exactly ${choicesCount} options each) based strictly on the provided transcript context. Write the questions, options, and explanations in English only. Avoid hallucinating details not present in the context. Options must be mutually exclusive. Include a brief explanation for the correct answer.`;
+    const system = [
+      `Write ${numQuestions} MCQs, ${choicesCount} options each. English. Use only the transcript excerpt.`,
+      'Stem: ≤20 words. Options: short.',
+      'Exactly 1 correct; others plausible and mutually exclusive.',
+      "No 'All of the above'/'None of the above'. No overlaps.",
+      `Match "${difficulty}" difficulty. Use exact terms/values from the excerpt (numbers, units, names).`,
+      'Explanation: 1 short sentence citing the excerpt.',
+    ].join('\n');
 
     const prompt = JSON.stringify({
       contextSpec,
