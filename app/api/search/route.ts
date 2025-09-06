@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     // 1) Refine query
     const refinedQuery = (
       await generateTextOnce({
-        model: 'openai/gpt-5-chat',
+        model: 'openai/gpt-4.1-mini',
         system:
           'You are an expert learning coach. Rewrite user queries for YouTube search to maximize educational relevance and clarity. If a learner profile is provided (grade, exams, subjects), tailor the query to that context. Keep it concise; no punctuation if unnecessary.',
         prompt: JSON.stringify({ query, learnerProfile }),
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     let parsed: { picks: Array<{ id: string; reason: string }> } | null = null;
     try {
       const { object } = await generateObject({
-        model: openrouter.chat('openai/gpt-5-chat'),
+        model: openrouter.chat('openai/gpt-4.1-mini'),
         system: selectionSystem,
         schema: z.object({
           picks: z

@@ -51,7 +51,7 @@ type Props = {
 };
 
 const models = [
-  { name: 'GPT 5 Chat', value: 'openai/gpt-5-chat' },
+  { name: 'GPT 5 Chat', value: 'openai/gpt-4.1-mini' },
   { name: 'Claude Sonnet 4', value: 'anthropic/claude-sonnet-4' },
 ];
 

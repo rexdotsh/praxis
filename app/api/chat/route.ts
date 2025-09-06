@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   ].join(' ');
 
   const modelName =
-    (webSearch ? 'perplexity/sonar' : model) || 'openai/gpt-5-chat';
+    (webSearch ? 'perplexity/sonar' : model) || 'openai/gpt-4.1-mini';
 
   const userBoost = transcriptContext
     ? `\n\n[Context Window (${contextSpec?.type ?? 'minutes'}:${contextSpec?.value ?? '?'}):]\n${transcriptContext}`
