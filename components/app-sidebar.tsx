@@ -63,7 +63,7 @@ function SidebarUser() {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  if (pathname.startsWith('/onboarding') || pathname === '/search') return null;
+  if (pathname !== '/dashboard') return null;
 
   return (
     <Sidebar {...props}>
