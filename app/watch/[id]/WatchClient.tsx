@@ -140,6 +140,7 @@ export default function WatchClient({
                       title={title}
                       description={description}
                       channel={channel}
+                      youtubeId={videoId}
                     />
                   </div>
                 </CardContent>
