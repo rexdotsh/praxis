@@ -1,3 +1,4 @@
 <pre>
-https://upgrad.rex.wf
+https://praxis.rex.wf
+https://app.praxis.rex.wf (this repo)
 </pre>

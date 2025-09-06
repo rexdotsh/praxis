@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "upgrad-hack",
+      "name": "praxis",
       "dependencies": {
         "@clerk/nextjs": "^6.31.9",
         "@hookform/resolvers": "^5.2.1",
