@@ -40,6 +40,7 @@ import { CopyIcon, GlobeIcon } from 'lucide-react';
 import { getWindowByMinutes } from '@/lib/transcript/window';
 import type { TranscriptItem } from '@/lib/youtube/transcript';
 import { useVideoPlayer } from '@/components/player/VideoPlayerProvider';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type Props = {
   transcript: TranscriptItem[] | null;
@@ -163,6 +164,16 @@ export default function VideoChat({
           another video with captions.
         </div>
       )}
+      <Tabs
+        value={view}
+        onValueChange={(v) => setView(v as 'chat' | 'chapters')}
+        className="mb-2 w-fit"
+      >
+        <TabsList>
+          <TabsTrigger value="chat">Chat</TabsTrigger>
+          <TabsTrigger value="chapters">Chapters</TabsTrigger>
+        </TabsList>
+      </Tabs>
       {view === 'chat' ? (
         <>
           <Conversation className="h-full">
