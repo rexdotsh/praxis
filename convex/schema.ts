@@ -29,4 +29,20 @@ export default defineSchema({
   })
     .index('by_user', ['userId'])
     .index('by_search', ['searchId']),
+  datesheets: defineTable({
+    userId: v.id('users'),
+    title: v.string(),
+    sourceType: v.union(v.literal('upload'), v.literal('manual')),
+    fileUrl: v.optional(v.string()),
+    items: v.array(
+      v.object({
+        subject: v.string(),
+        // ISO date string YYYY-MM-DD
+        examDate: v.string(),
+        // Syllabus is optional and often empty
+        syllabus: v.optional(v.array(v.string())),
+      }),
+    ),
+    notes: v.optional(v.string()),
+  }).index('by_user', ['userId']),
 });
