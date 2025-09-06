@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       'The datesheet may include subjects outside the allowed list; ignore them.',
       'If the same exam date is linked to multiple subjects (e.g., OPT-A and OPT-B), include only one by default (prioritize OPT-A). If onboarding specifies that the student has both, then include both. Ensure no duplicate exam dates are created.',
       'Only include subjects that are part of the student’s chosen subset during onboarding, even if they exist in the allowed subjects list.',
+      'Format the syllabus concisely and consistently: do not repeat book names or other common prefixes for each chapter/topic. Preserve chapter numbers if present (e.g., Ch-1, Ch-2), and keep all subjects following the same style.',
     ]
       .filter(Boolean)
       .join(' ');
