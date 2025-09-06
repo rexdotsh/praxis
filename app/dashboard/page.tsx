@@ -12,58 +12,19 @@ export default async function DashboardPage() {
     redirect('/onboarding');
   }
 
-  const userMetadata = sessionClaims.metadata;
+  // const userMetadata = sessionClaims.metadata;
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold text-foreground mb-6">
-        Welcome to your Dashboard!
-      </h1>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="bg-card text-card-foreground p-6 rounded-lg border border-border">
-          <h2 className="text-xl font-semibold mb-4">Your Profile</h2>
-          <div className="space-y-2">
-            <p>
-              <strong>Name:</strong> {userMetadata.name}
-            </p>
-            <p>
-              <strong>Age:</strong> {userMetadata.age}
-            </p>
-            <p>
-              <strong>Grade:</strong> {userMetadata.grade}
-            </p>
-          </div>
+    <>
+      <header className="flex h-16 shrink-0 items-center gap-2" />
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="grid auto-rows-min gap-4 md:grid-cols-3">
+          <div className="bg-muted/50 aspect-video rounded-xl" />
+          <div className="bg-muted/50 aspect-video rounded-xl" />
+          <div className="bg-muted/50 aspect-video rounded-xl" />
         </div>
-
-        <div className="bg-card text-card-foreground p-6 rounded-lg border border-border">
-          <h2 className="text-xl font-semibold mb-4">Target Exams</h2>
-          <div className="flex flex-wrap gap-2">
-            {userMetadata.exams?.map((exam) => (
-              <span
-                key={exam}
-                className="bg-primary text-primary-foreground px-2 py-1 rounded-md text-sm"
-              >
-                {exam}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-card text-card-foreground p-6 rounded-lg border border-border md:col-span-2">
-          <h2 className="text-xl font-semibold mb-4">Subjects</h2>
-          <div className="flex flex-wrap gap-2">
-            {userMetadata.subjects?.map((subject) => (
-              <span
-                key={subject}
-                className="bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm"
-              >
-                {subject}
-              </span>
-            ))}
-          </div>
-        </div>
+        <div className="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
       </div>
-    </div>
+    </>
   );
 }

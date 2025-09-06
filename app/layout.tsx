@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
-import { SiteHeader } from '@/components/site-header';
 import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 import { Analytics } from '@vercel/analytics/react';
 import ConvexClientProvider from '@/components/ConvexClientProvider';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { AppSidebar } from '@/components/app-sidebar';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -37,8 +38,10 @@ export default function RootLayout({
       >
         <ClerkProvider>
           <ConvexClientProvider>
-            <SiteHeader />
-            {children}
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>{children}</SidebarInset>
+            </SidebarProvider>
           </ConvexClientProvider>
         </ClerkProvider>
         <Toaster position="top-right" richColors />
