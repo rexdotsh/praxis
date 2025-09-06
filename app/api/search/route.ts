@@ -28,7 +28,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing query' }, { status: 400 });
     }
 
-    // Pull learner profile from Clerk session claims if available
+    // TODO: pass in more as we build out onboarding more
+    // and also make the prompt way better with a huge focus on this
     const { sessionClaims } = await auth();
     const learnerProfile = sessionClaims?.metadata
       ? {
