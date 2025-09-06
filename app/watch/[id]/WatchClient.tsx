@@ -4,7 +4,7 @@ import YouTubePlayer from '@/components/player/YouTubePlayer';
 import { Card, CardContent } from '@/components/ui/card';
 import type { TranscriptItem } from '@/lib/youtube/transcript';
 import VideoChat from '@/components/chat/VideoChat';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { VideoPlayerProvider } from '@/components/player/VideoPlayerProvider';
 import type { VideoPlayerContextValue } from '@/components/player/VideoPlayerProvider';
 
@@ -31,6 +31,14 @@ export default function WatchClient({
   const [chapters, setChapters] = useState<
     Array<{ title: string; startMs: number }>
   >([]);
+  const [chaptersSource, setChaptersSource] = useState<
+    'description' | 'transcript' | null
+  >(null);
+  const [_chapterWindow, setChapterWindow] = useState<{
+    startMs: number;
+    windowMs: number;
+  } | null>(null);
+  const lastRequestedStartRef = useRef<number | null>(null);
   const [playerCtx, setPlayerCtx] = useState<VideoPlayerContextValue>({
     videoId,
     status: 'unstarted',
@@ -43,6 +51,17 @@ export default function WatchClient({
     setPlaybackRate: () => {},
   });
 
+  const _formatChapterTime = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    if (hours > 0) {
+      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  };
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -54,12 +73,7 @@ export default function WatchClient({
         const r = await fetch('/api/suggestions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            youtubeId: videoId,
-            title,
-            description,
-            transcriptSample,
-          }),
+          body: JSON.stringify({ title, description, transcriptSample }),
         });
         const j = await r.json();
         if (mounted && Array.isArray(j.suggestions))
@@ -74,23 +88,128 @@ export default function WatchClient({
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const load = async (startMs?: number) => {
       if (!transcript || transcript.length === 0) return;
       try {
         const r = await fetch('/api/chapters', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript }),
+          body: JSON.stringify({
+            transcript,
+            description,
+            startMs,
+            windowMs: 15 * 60 * 1000,
+          }),
         });
         const j = await r.json();
-        if (mounted && Array.isArray(j.chapters)) setChapters(j.chapters);
+        if (mounted && Array.isArray(j.chapters)) {
+          setChapters(j.chapters);
+          if (j.source === 'description' || j.source === 'transcript')
+            setChaptersSource(j.source);
+          if (
+            j.window &&
+            typeof j.window.startMs === 'number' &&
+            typeof j.window.windowMs === 'number'
+          )
+            setChapterWindow(j.window);
+        }
       } catch {}
     };
-    load();
+    load(0);
     return () => {
       mounted = false;
     };
   }, [transcript]);
+
+  useEffect(() => {
+    if (chaptersSource !== 'transcript') return;
+    const upcoming = chapters.filter(
+      (c) => c.startMs >= playerCtx.currentTimeMs,
+    );
+    if (upcoming.length <= 1) {
+      const startAt = Math.max(0, playerCtx.currentTimeMs);
+      const last = lastRequestedStartRef.current;
+      if (last == null || Math.abs(startAt - last) > 30_000) {
+        lastRequestedStartRef.current = startAt;
+        (async () => {
+          try {
+            const r = await fetch('/api/chapters', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                transcript,
+                description,
+                startMs: startAt,
+                windowMs: 15 * 60 * 1000,
+              }),
+            });
+            const j = await r.json();
+            if (Array.isArray(j.chapters)) {
+              setChapters(j.chapters);
+              if (
+                j.window &&
+                typeof j.window.startMs === 'number' &&
+                typeof j.window.windowMs === 'number'
+              )
+                setChapterWindow(j.window);
+            }
+          } catch {}
+        })();
+      }
+    }
+  }, [
+    playerCtx.currentTimeMs,
+    chapters,
+    chaptersSource,
+    transcript,
+    description,
+  ]);
+
+  useEffect(() => {
+    if (chaptersSource !== 'description') return;
+    if (!transcript || transcript.length === 0) return;
+    const lastKnownStart = chapters.reduce(
+      (max, c) => (c.startMs > max ? c.startMs : max),
+      0,
+    );
+    if (playerCtx.currentTimeMs <= lastKnownStart) return;
+
+    const startAt = Math.max(0, playerCtx.currentTimeMs);
+    const last = lastRequestedStartRef.current;
+    if (last != null && Math.abs(startAt - last) <= 30_000) return;
+    lastRequestedStartRef.current = startAt;
+
+    (async () => {
+      try {
+        const r = await fetch('/api/chapters', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transcript,
+            startMs: startAt,
+            windowMs: 15 * 60 * 1000,
+          }),
+        });
+        const j = await r.json();
+        if (Array.isArray(j.chapters) && j.chapters.length) {
+          setChapters((prev) => {
+            const map = new Map<number, { title: string; startMs: number }>();
+            for (const c of prev) map.set(c.startMs, c);
+            for (const c of j.chapters) map.set(c.startMs, c);
+            return Array.from(map.values()).sort(
+              (a, b) => a.startMs - b.startMs,
+            );
+          });
+          if (
+            j.window &&
+            typeof j.window.startMs === 'number' &&
+            typeof j.window.windowMs === 'number'
+          )
+            setChapterWindow(j.window);
+        }
+      } catch {}
+    })();
+  }, [chaptersSource, playerCtx.currentTimeMs, transcript, chapters]);
 
   return (
     <VideoPlayerProvider value={playerCtx}>
@@ -137,6 +256,7 @@ export default function WatchClient({
                       transcript={transcript}
                       suggestions={suggestions}
                       chapters={chapters}
+                      chaptersSource={chaptersSource}
                       title={title}
                       description={description}
                       channel={channel}
