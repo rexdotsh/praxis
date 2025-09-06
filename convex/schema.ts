@@ -45,4 +45,8 @@ export default defineSchema({
     ),
     notes: v.optional(v.string()),
   }).index('by_user', ['userId']),
+  video_suggestions: defineTable({
+    youtubeId: v.string(),
+    suggestions: v.array(v.string()),
+  }).index('by_youtubeId', ['youtubeId']),
 });

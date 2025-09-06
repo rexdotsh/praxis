@@ -54,7 +54,12 @@ export default function WatchClient({
         const r = await fetch('/api/suggestions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, description, transcriptSample }),
+          body: JSON.stringify({
+            youtubeId: videoId,
+            title,
+            description,
+            transcriptSample,
+          }),
         });
         const j = await r.json();
         if (mounted && Array.isArray(j.suggestions))
