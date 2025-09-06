@@ -1,159 +1,241 @@
-## Watch UI + AI Chat Plan
+## Quiz system plan (approval needed before implementation)
 
-### Objectives
-- Fully replace the current transcript pane with a right-side AI chat powered by AI Elements and AI SDK.
-- Integrate YouTube IFrame API to track player state (play/pause/buffer), current time, duration, and playback rate.
-- Provide transcript-aware context windows (e.g., last 5/10/15 minutes) when sending prompts.
-- Generate AI-based suggestion messages on load from transcript and metadata.
- - Generate chapter markers with AI from the transcript on load; display chapters and feed them into the AI context.
+### Goals
+- Add an MCQ quiz feature as an addon to `app/watch/[id]/WatchClient.tsx` and `components/chat/VideoChat.tsx`.
+- Generate quizzes from a selectable video window (e.g., last 5/10/15/20/30 minutes or last chapter).
+- Use Vercel AI SDK with structured output (Zod) similar to `app/api/chapters/route.ts`.
+- Run the quiz entirely in a Shadcn `Dialog` (no page nav), one question per step.
+- Persist everything to DB (Convex) including quiz, questions, sessions, answers, results.
+- Keep it flexible for future automatic prompts (e.g., “Generate quiz for last chapter”).
 
-### High-level Architecture
-- Server
-  - `app/api/chat/route.ts`: streaming chat endpoint using AI SDK + `openrouter` provider; return parts with reasoning and sources.
-  - `app/api/suggestions/route.ts`: generate short clickable suggestions from transcript + metadata.
-  - Continue best-effort transcript fetching in `lib/youtube/transcript.ts` on the watch page and pass to client.
-- Client
-  - Player
-    - `components/player/YouTubePlayer.tsx`: Client component that loads IFrame API, instantiates `YT.Player`, maps events, and emits time updates.
-    - `context/video-player.tsx`: React context exposing player state: currentTimeMs, durationMs, playbackRate, status, and controls.
-  - Watch UI
-    - `app/watch/[id]/WatchClient.tsx`: Composes the player, video details, and right-side chat panel.
-    - Right-side panel is AI Chat (fully replaces Transcript). Responsive: stacks below video on small screens.
-  - AI Chat
-    - `components/chat/VideoChat.tsx`: Uses AI Elements (`Conversation`, `Message`, `PromptInput`, etc.) and `@ai-sdk/react` `useChat` to stream responses.
-    - Supports model picker and optional web search.
-    - Injects transcript slice based on selected context window and current player time.
-  - Suggestions
-    - `components/chat/SuggestionsBar.tsx`: Renders AI Elements `Suggestions`/`Suggestion` with onClick -> sendMessage.
-  - Chapters
-    - `components/watch/Chapters.tsx`: Displays generated chapters; clicking seeks the player. Chapters are included in AI context.
+### Decisions (from you)
+- Auth: all authenticated with Clerk; no anonymous mode.
+- Default number of questions: 5; min 3, max 10.
+- Choices per question: fixed 4.
+- Difficulty: included.
+- Placement: VideoChat toolbar.
+- Explanations: only on the end results screen; do not show explanations for wrong answers at all.
+- Shareable summary: not needed.
+- Model: continue with `openai/gpt-4.1-mini` via OpenRouter.
+- Treat this as a final product, not MVP.
 
-### YouTube IFrame API Integration
-- Replace `@next/third-parties/google` `YouTubeEmbed` with custom player built via IFrame API.
-- Implementation details
-  - Load once: `lib/youtube/iframe.ts` utility to load `https://www.youtube.com/iframe_api` and await `window.onYouTubeIframeAPIReady`.
-  - Create player with `new YT.Player(container, { videoId, playerVars: { ... }, events })`.
-  - Track
-    - onReady -> duration, initial state.
-    - onStateChange -> playing/paused/buffering/ended.
-    - Poll `getCurrentTime()` while playing (rAF or interval) and on seek/state transitions.
-  - Expose controls: `play()`, `pause()`, `seekTo(ms)`, `setPlaybackRate(rate)`.
-  - Provide origin and `enablejsapi=1` (handled by IFrame API) and ensure `host: 'https://www.youtube.com'` where needed.
-  - Polling cadence for time updates: 250–500ms while playing; on state/seek transitions emit immediate update.
-  - Fallback: if IFrame API load fails, render static embed and disable time-based features.
+---
 
-### Transcript Handling + Context Windows
-- Server fetch transcript on page load (as today) and pass to client as prop.
-- Client derives slices for context without extra effects:
-  - Data model: `TranscriptItem { text, startMs, durationMs, lang? }`.
-  - Build derived helpers:
-    - `getWindowByMinutes(transcript, currentTimeMs, minutes)` -> joined text capped by token budget.
-    - Fallback: entire transcript or last N items if duration unknown.
-  - Edge cases: transcript missing -> show a prominent warning in the chat panel and recommend choosing another video; do not attempt alternate sources.
-  - No server-side transcript caching.
+### UX flow
+1) Entry point
+   - Add a `Quiz` button in the right panel (same column as chat):
+     - Proposed placement: within `VideoChat` toolbar next to the `Search` toggle, enabled only when transcript available.
+     - Alternative: below Suggestions list as a `Button`.
 
-### AI Chat
-- Frontend (AI Elements + AI SDK)
-  - Use `Conversation`, `Message`, `Response`, `Reasoning`, `Sources`, `PromptInput` with model picker.
-  - Add toolbar: model select (default `openai/gpt-4o-mini` via OpenRouter), optional web search toggle (default off), context window select.
-  - Context window options: 5, 10, 15, 20, 25, 30 minutes (max).
-  - On submit: compute transcript slice using current `VideoPlayerContext` time; send as `body: { model, webSearch, transcriptContext, contextSpec, chapters }`.
-- Backend (AI SDK streaming)
-  - `app/api/chat/route.ts` using `streamText` and `convertToModelMessages` to stream UI parts.
-  - Use `openrouter.chat(model)`; if `webSearch`, optionally use `perplexity/sonar` for sources.
-  - System prompt emphasizes using the provided transcript slice (and chapters) as primary context; cite sources if provided by the model; concise, instructional tone.
-  - Reasoning parts shown if provided by the model and supported by UI.
+2) Start dialog (Shadcn `Dialog`)
+   - Section: "Quiz setup"
+   - Inputs (use `React Hook Form` + Shadcn `Input`/`Select`/`RadioGroup`):
+     - Scope: `Last N minutes` OR `Last chapter` (if chapters are available)
+     - If `Last N minutes`: selectable values `[5, 10, 15, 20, 30]` (default 10)
+     - Number of questions: default 5 (range 3–15)
+     - Difficulty (optional): `easy | medium | hard` (default medium)
+   - CTA: `Generate quiz`
 
-### Suggestions
-- API: `app/api/suggestions/route.ts`
-  - Input: title, description, (optional) transcript sample (first N chars) and/or outline.
-  - Output: array of short, diverse question strings (5 items).
-- UI: `Suggestions` row under chat input; click -> `sendMessage({ text: suggestion })`.
-- Prefer deterministic, non-duplicative suggestions (temperature ~0.3–0.5) and short phrasing.
- - Generated on watch page load; display loading state until available.
+3) Generation state
+   - Show loader (`Loader` or `Skeleton`) while calling `/api/quiz/generate`.
 
-### Watch Page Refactor
-- Server page `app/watch/[id]/page.tsx`
-  - Keep SSR for metadata + transcript.
-  - Render `WatchClient` with props: `videoId`, `meta`, `transcript`.
-  - Remove transcript pane and render chat panel instead.
-  - Place quick actions below the video (outside chat), e.g., Summarize last N minutes, Explain topic, Make quiz.
+4) Quiz run (still in `Dialog`)
+   - One question at a time:
+     - Render with `Card`, `Typography`, `RadioGroup` for options, `Button` (Next/Submit)
+     - Progress with `Progress` bar and count (e.g., 2/5)
+   - On answer submit:
+     - POST to `/api/quiz/answer` to persist selection and get correctness & explanation
+     - Show correctness state and optional `Alert` or inline highlight
+     - CTA to proceed to next question
 
-### Data/Privacy/Perf
-- Only send the selected transcript slice per request to minimize token usage.
-- Max transcript context: ~6,000 tokens (≈24k chars) per request; if longer, truncate oldest first within the selected window.
-- No PII redaction beyond defaults (as requested). No telemetry needed.
+5) Results (completion step)
+   - Show total score, per-question correctness, explanations (collapsible with `Accordion`)
+   - Actions: `Retake` (re-generate), `Close`
 
-### Failure Handling
-- If IFrame API fails, fall back to plain embed and disable time-based context windows.
-- If transcript missing, disable context window selector, show a prominent warning, and recommend choosing another video.
+6) Edge cases
+   - Transcript unavailable: disable `Quiz` button with tooltip.
+   - Chapters unavailable: hide `Last chapter` option.
+   - If context window too short (<30s), prompt to expand to 5 minutes.
 
-### API Contracts
-- `POST /api/chat`
-  - Request body: `{ messages: UIMessage[], model: string, webSearch?: boolean, transcriptContext?: string, contextSpec?: { type: 'minutes', value: number }, chapters?: Array<{ title: string; startMs: number }> }`
-  - Behavior: streams assistant messages; may include `reasoning` and `source-url` parts.
-  - Defaults: `model = 'openai/gpt-4o-mini'`, `webSearch = false`.
-  - Duration limit: 30s streaming window.
-- `POST /api/suggestions`
-  - Request body: `{ title: string, description?: string, transcriptSample?: string }`
-  - Response: `{ suggestions: string[] }` (5 items).
-- `POST /api/chapters`
-  - Request body: `{ transcript: TranscriptItem[], preferredCount?: number }`
-  - Response: `{ chapters: Array<{ title: string; startMs: number }> }`
+Components used (Shadcn): `Dialog`, `Button`, `Card`, `RadioGroup`, `Progress`, `Alert`, `Accordion`, `Typography`, `Skeleton`, `Toast` (via `Sonner`) for non-blocking notifications.
 
-### Tasks (Implementation)
-1) Implement YouTube IFrame API player with state tracking.
-2) Create `VideoPlayerContext` and wire into `WatchClient`.
-3) Scaffold AI Elements components (see list below) via CLI.
-4) Add `app/api/chat/route.ts` streaming endpoint using AI SDK + `openrouter`.
-5) Build `VideoChat` with model picker (default `openai/gpt-4o-mini`), optional web search toggle, and context window selector (5–30 mins).
-6) Implement transcript slicing helpers and integrate into message submit; enforce max token budget.
-7) Add suggestions endpoint + `SuggestionsBar`; load on watch page mount; show loading state.
-8) Add chapters endpoint and `Chapters` component; clicking seeks player and enriches AI context.
-9) Replace transcript pane with chat and quick actions below the video.
-10) Lint and fix errors.
+---
 
-### Dependencies/Setup
-- Ensure `@ai-sdk/react` is installed; use Bun (bun.lock present).
-- Run AI Elements CLI to add components (Bun): `bunx --bun ai-elements@latest add <component>`.
-- Confirm `OPENROUTER_API_KEY` exists (already used by `lib/ai.ts`). Optionally support Vercel AI Gateway.
+### Data model (Convex)
+Add tables to `convex/schema.ts`:
 
-### Stretch/Future
-- “Jump to answer” timestamps from responses (extract timestamps and seek player).
-- Auto-summarize last N minutes on pause.
-- Save chat threads per video to Convex.
+1) `quizzes`
+   - `createdByUserId: v.id("users")`
+   - `videoId: v.id("videos")` (resolve via `videos.by_youtubeId`)
+   - `spec: v.object({ type: v.union(v.literal("last_minutes"), v.literal("last_chapter")), value: v.number() })`  // if last_chapter, `value` stores startMs
+   - `meta: v.object({ title: v.string(), description: v.optional(v.string()), channel: v.optional(v.string()) })`
+   - `numQuestions: v.number()` // default 5; min 3; max 10
+   - `choicesCount: v.number()` // fixed 4 for now
+   - `difficulty: v.union(v.literal("easy"), v.literal("medium"), v.literal("hard"))`
+   - `model: v.string()` // e.g., "openai/gpt-4.1-mini"
+   - `status: v.union(v.literal("draft"), v.literal("active"), v.literal("archived"))` (default `active`)
+   - Indexes: `by_video` on `["videoId", "_creationTime"]`, `by_user` on `["createdByUserId", "_creationTime"]`
 
-### Convex Schema (proposed)
-- `video_chats`
-  - `videoId: string` (YouTube ID)
-  - `userId?: Id<'users'>`
-  - `model: string`
-  - `createdAt: number`
-  - Index: by `videoId`
-- `video_chat_messages`
-  - `chatId: Id<'video_chats'>`
-  - `role: 'user' | 'assistant' | 'system'`
-  - `content: string` (flattened text for now)
-  - `contextSpec?: { type: 'minutes'; value: number }`
-  - `transcriptStartMs?: number`
-  - `transcriptEndMs?: number`
-  - `_creationTime: number`
-  - Index: by `chatId`
-- `video_suggestion_clicks`
-  - `videoId: string`
-  - `suggestion: string`
-  - `_creationTime: number`
-  - Index: by `videoId`
+2) `quiz_questions`
+   - `quizId: v.id("quizzes")`
+   - `prompt: v.string()`
+   - `options: v.array(v.string())` (default 4 choices, support 3–8)
+   - `correctIndex: v.number()`
+   - `explanation: v.optional(v.string())`
+   - Indexes: `by_quiz` on `["quizId", "_creationTime"]`
 
-### Acceptance Criteria
-- Watch page shows responsive right-side chat panel (or stacked on small screens) with AI Elements UI.
-- Player state (time, status) is tracked; context selector offers 5–30 minute options.
-- Missing transcript shows a clear warning and disables context selector; chat still works with metadata.
-- Suggestions (5) appear on load under input; clicking sends a prompt.
-- Chapters are generated on load and displayed; clicking seeks the player; chat can reference chapters.
-- Chat streams responses, optionally shows reasoning, and can toggle web search.
-- All requests only include the selected transcript slice and respect the max context size.
-- Chats and messages (with contextSpec) are saved in Convex; suggestion clicks are recorded.
+3) `quiz_sessions`
+   - `quizId: v.id("quizzes")`
+   - `userId: v.id("users")`
+   - `status: v.union(v.literal("in_progress"), v.literal("completed"))`
+   - `startedAtMs: v.number()`
+   - `finishedAtMs: v.optional(v.number())`
+   - Indexes: `by_quiz` on `["quizId", "_creationTime"]`, `by_user` on `["userId", "_creationTime"]`
 
-### AI Elements Components to Add (via CLI)
-conversation, message, prompt-input, response, reasoning, sources, loader, actions, suggestion
+4) `quiz_answers`
+   - `sessionId: v.id("quiz_sessions")`
+   - `questionId: v.id("quiz_questions")`
+   - `selectedIndex: v.number()`
+   - `isCorrect: v.boolean()`
+   - Indexes: `by_session` on `["sessionId", "_creationTime"]`, `by_question` on `["questionId", "_creationTime"]`
+
+Notes:
+- Do not send `correctIndex` or correctness to the client during the quiz flow. Only reveal at results time; include explanations for wrong answers.
+- All sessions are tied to an authenticated user; no anonymous `sessionKey`.
+
+---
+
+### Convex functions (files: `convex/quizzes.ts`)
+Follow new function syntax with validators and returns.
+
+- `createQuiz`: mutation
+  - args: `{ videoId, createdByUserId, spec, meta, numQuestions, choicesCount, difficulty, model }`
+  - returns: `v.id("quizzes")`
+  - inserts quiz row
+
+- `saveQuestions`: internalMutation
+  - args: `{ quizId, questions: v.array(v.object({ prompt, options, correctIndex, explanation })) }`
+  - returns: `v.null()`
+  - inserts `quiz_questions`
+
+- `createSession`: mutation
+  - args: `{ quizId, userId }`
+  - returns: `v.id("quiz_sessions")`
+
+- `getNextQuestion`: query
+  - args: `{ quizId, sessionId, userId }`
+  - auth check that session belongs to user; returns next unanswered question (sanitized: no `correctIndex`)
+
+- `submitAnswer`: mutation
+  - args: `{ sessionId, questionId, selectedIndex, userId }`
+  - returns: `{ acknowledged: v.boolean(), progress: v.object({ answered: v.number(), total: v.number() }) }`
+  - writes `quiz_answers`; DOES NOT reveal correctness or `correctIndex`
+
+- `getSessionResults`: query
+  - args: `{ sessionId, userId }`
+  - returns: `{ total, correct, details: Array<{ questionId, prompt, options, selectedIndex, isCorrect, // optional explanation ONLY if isCorrect === false }>} `
+
+- `finishSession`: mutation
+  - args: `{ sessionId, userId }`
+  - marks session completed and sets `finishedAtMs`
+
+---
+
+### API routes (Next.js app router)
+Implement with Vercel AI SDK, then persist via Convex mutations. All routes require Clerk auth; resolve `users` row by Clerk subject (create on first seen) and pass `userId` to Convex.
+
+1) `POST /api/quiz/generate`
+   - Input: `{ youtubeId, model, transcriptContext: string, contextSpec: { type: 'minutes' | 'chapter', value: number }, numQuestions?: number (default 5; min 3; max 10), choicesCount?: 4 (ignored if != 4), difficulty?: 'easy' | 'medium' | 'hard', meta?: { title?, description?, channel? } }`
+   - Flow:
+     - Build prompt using `transcriptContext` similar to `app/api/chapters/route.ts`.
+     - Call `generateObject` with schema `QuizGenerationSchema` (see below).
+     - Resolve `videoId` from `youtubeId` (create if missing) and `userId` from Clerk.
+     - Create quiz via `convex.quizzes.createQuiz`, then `saveQuestions`.
+     - Create session via `convex.quizzes.createSession` for the authenticated user.
+   - Output: `{ quizId, sessionId, questions: Array<{ id, prompt, options }>, total }` (no answers, no correctness)
+
+2) `POST /api/quiz/answer`
+   - Input: `{ sessionId, questionId, selectedIndex }`
+   - Calls `convex.quizzes.submitAnswer` with `userId`
+   - Output: `{ acknowledged: true, progress: { answered, total } }` (no correctness or explanation)
+
+3) `GET /api/quiz/session?sessionId=...`
+   - Returns quiz state for resume (for the authenticated user): `questions (sanitized), answered map, answered count`
+
+4) `POST /api/quiz/finish`
+   - Marks session completed and returns final results from `getSessionResults`.
+   - Results include explanations for wrong answers (show correct option and explanation for those only).
+
+Security & state:
+- Clerk-protected endpoints; map Clerk subject to `users` row.
+- Rate-limit generation per user+video (optional future enhancement).
+
+---
+
+### Vercel AI structured output
+Schema (Zod) for generation, inspired by `app/api/chapters/route.ts` usage:
+
+```ts
+const QuizGenerationSchema = z.object({
+  questions: z.array(z.object({
+    id: z.string().optional(), // will generate server-side if absent
+    prompt: z.string(),
+    options: z.array(z.string()).min(3).max(8),
+    correctIndex: z.number().int().nonnegative(),
+    explanation: z.string().optional(),
+  })).min(3).max(15),
+});
+```
+
+Prompting guidance:
+- “Create concise, unambiguous MCQs based strictly on the provided transcript window. Avoid outside knowledge unless obviously general. Options should be mutually exclusive. Include short explanation for the correct answer.”
+
+---
+
+### Computing transcript context
+- Reuse `getWindowByMinutes(transcript, player.currentTimeMs, minutes)` from `VideoChat`.
+- For `Last chapter`, pick the latest chapter whose `startMs` ≤ `player.currentTimeMs`; gather transcript between that chapter start and now (cap size to ~2000–3000 tokens by truncating older items if needed).
+
+---
+
+### UI wiring details
+- `VideoChat` additions:
+  - Add `Quiz` button in toolbar; opens `Dialog` controlled by component state.
+  - Step 1 (setup form), Step 2 (generating), Step 3 (quiz run), Step 4 (results).
+  - Use `Toast` to surface non-blocking errors and background notifications (e.g., suggestion to try quiz for last chapter).
+  - During quiz: on submit, advance to next question without revealing correctness; disable back navigation to previous questions to meet no-spoilers expectation.
+
+Accessibility & styles:
+- Shadcn defaults only; no hardcoded colors.
+- Keyboard navigation: arrow keys for `RadioGroup`, Enter to submit.
+
+---
+
+### Analytics & persistence details
+- Store per-answer latency (ms) client-side, optionally include when submitting (future).
+- Save whether user viewed explanation (future).
+- Allow re-generation as a new quiz (new quiz row) or a new session on the same quiz (configurable).
+
+---
+
+### Future automation hook
+- Trigger toast after chapter ends: “Generate a 5-question quiz for the last chapter?”
+- One-click: pre-fills dialog with `Last chapter` and default count.
+
+---
+
+### Remaining question (clarify before build)
+1) On the results screen, for questions answered incorrectly, should we show the correct option (without explanation) or hide it entirely and only show score? (You said no explanations for wrong answers; confirming visibility of the correct answer.)
+
+---
+
+### Acceptance criteria (final)
+- Quiz button visible when transcript is available; in `VideoChat` toolbar.
+- Dialog-driven flow: setup → generating → quiz → results.
+- Structured output used for generation; persisted to Convex.
+- During quiz: no correctness or explanations are revealed.
+- Results screen: show score and per-question correctness; include explanations for wrong answers.
+- All data saved with user association (Clerk), including quiz, session, answers, and results.
+- Sessions can be resumed until finished; once finished, marked completed.
+
+
