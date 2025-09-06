@@ -4,7 +4,6 @@
     "lib/i18n/**"
   ],
   "ignoreDependencies": [
-    "lefthook",
     "tailwindcss",
     "tw-animate-css",
     "postcss"
