@@ -1,10 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useMutation } from 'convex/react';
+import { useRef, useState } from 'react';
+import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { toast } from 'sonner';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +15,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  UploadCloud,
+  FileText,
+  X as IconX,
+  Plus,
+  Save as IconSave,
+  Sparkles,
+  Calendar,
+  Eye,
+} from 'lucide-react';
 
 type ParsedItem = {
   id: string;
@@ -27,21 +35,29 @@ type ParsedItem = {
 
 export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
   const create = useMutation(api.datesheets.create);
-  const [selectedFiles, setSelectedFiles] = useState<Array<File>>([]);
-  const [uploading, setUploading] = useState(false);
-  const [parsing, setParsing] = useState(false);
+  const removeExam = useMutation(api.datesheets.removeExam);
+  const upcomingItems =
+    useQuery(api.datesheets.listUpcomingItemsByUser, { limit: 20 }) ?? [];
+  const datesheets = useQuery(api.datesheets.listByUser) ?? [];
+
+  const [viewMode, setViewMode] = useState<'create' | 'view'>('view');
   const [title, setTitle] = useState('');
   const [attachments, setAttachments] = useState<
     Array<{ url: string; name: string; contentType: string }>
   >([]);
   const [rows, setRows] = useState<ParsedItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [expandedExam, setExpandedExam] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function newId() {
     return Math.random().toString(36).slice(2) + Date.now().toString(36);
   }
 
-  async function onUpload() {
-    if (selectedFiles.length === 0) return;
+  async function handleFiles(files: Array<File>) {
+    if (files.length === 0) return;
     setUploading(true);
     try {
       const uploaded: Array<{
@@ -49,7 +65,7 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
         name: string;
         contentType: string;
       }> = [];
-      for (const file of selectedFiles) {
+      for (const file of files) {
         const form = new FormData();
         form.append('file', file);
         const res = await fetch('/api/blob/upload', {
@@ -65,8 +81,8 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
         });
       }
       setAttachments((prev) => [...prev, ...uploaded]);
-      setSelectedFiles([]);
       toast.success(`Uploaded ${uploaded.length} file(s)`);
+      await parseFromCurrentAttachments([...attachments, ...uploaded]);
     } catch {
       toast.error('Upload failed');
     } finally {
@@ -74,18 +90,20 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
     }
   }
 
-  async function onParse() {
-    if (attachments.length === 0) return;
+  async function parseFromCurrentAttachments(
+    list: Array<{ url: string; name: string; contentType: string }>,
+  ) {
+    if (list.length === 0) return;
     setParsing(true);
     try {
-      const pdfUrls = attachments
+      const pdfUrls = list
         .filter(
           (a) =>
             a.contentType === 'application/pdf' ||
             a.name.toLowerCase().endsWith('.pdf'),
         )
         .map((a) => a.url);
-      const imageUrls = attachments
+      const imageUrls = list
         .filter(
           (a) =>
             a.contentType.startsWith('image/') &&
@@ -101,7 +119,9 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
       const data = (await res.json()) as {
         parsed: { title?: string; items: Omit<ParsedItem, 'id'>[] };
       };
-      setTitle(data.parsed.title ?? '');
+      setTitle((prev) =>
+        prev.trim().length === 0 ? (data.parsed.title ?? '') : prev,
+      );
       setRows(data.parsed.items.map((it) => ({ ...it, id: newId() })));
       toast.success('Parsed with AI');
     } catch {
@@ -111,7 +131,7 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
     }
   }
 
-  async function onSave(sourceType: 'upload' | 'manual') {
+  async function onSave() {
     try {
       const cleaned = rows
         .map((r) => ({
@@ -127,15 +147,15 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
         return;
       }
       const primarySourceUrl = attachments[0]?.url;
-      const finalTitle = title.trim();
       await create({
-        title: finalTitle,
-        sourceType,
+        title: title.trim(),
+        sourceType: attachments.length > 0 ? 'upload' : 'manual',
         fileUrl:
-          sourceType === 'upload' ? (primarySourceUrl ?? undefined) : undefined,
+          attachments.length > 0 ? (primarySourceUrl ?? undefined) : undefined,
         items: cleaned,
       });
       toast.success('Saved');
+      setViewMode('view');
       onSaved?.();
     } catch {
       toast.error('Save failed');
@@ -163,264 +183,333 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
     setRows((prev) => prev.filter((_, i) => i !== idx));
   }
 
-  return (
-    <Tabs defaultValue="upload">
-      <TabsList>
-        <TabsTrigger value="upload">Upload & AI Parse</TabsTrigger>
-        <TabsTrigger value="manual">Manual Entry</TabsTrigger>
-      </TabsList>
+  function removeAttachment(idx: number) {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  }
 
-      <TabsContent value="upload">
-        <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col gap-3">
-                <Input
-                  type="file"
-                  accept="application/pdf,image/*"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.currentTarget.files ?? []);
-                    if (files.length === 0) return;
-                    setSelectedFiles((prev) => [...prev, ...files]);
-                    e.currentTarget.value = '';
-                  }}
-                />
-                <div className="flex gap-2">
-                  <Button
-                    onClick={onUpload}
-                    disabled={selectedFiles.length === 0 || uploading}
-                  >
-                    {uploading ? 'Uploading…' : 'Upload selected'}
-                  </Button>
-                  <Button
-                    onClick={onParse}
-                    disabled={attachments.length === 0 || parsing}
-                    variant="secondary"
-                  >
-                    {parsing ? 'Parsing…' : 'Parse with AI'}
-                  </Button>
-                </div>
-                {selectedFiles.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    <div className="text-sm font-medium">
-                      Selected files (not uploaded yet)
-                    </div>
-                    <ul className="space-y-1">
-                      {selectedFiles.map((f, i) => (
-                        <li
-                          key={`${f.name}-${f.size}-${f.lastModified}`}
-                          className="flex items-center justify-between gap-2 text-sm"
-                        >
-                          <span className="truncate" title={f.name}>
-                            {f.name}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              setSelectedFiles((prev) =>
-                                prev.filter((_, idx) => idx !== i),
-                              )
-                            }
-                          >
-                            Remove
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                    <div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setSelectedFiles([])}
-                        disabled={uploading}
-                      >
-                        Clear selected
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {attachments.length > 0 && (
-                  <div className="mt-2 space-y-2">
-                    <div className="text-sm font-medium">Attached files</div>
-                    <ul className="space-y-1">
-                      {attachments.map((a, i) => (
-                        <li
-                          key={`${a.url}-${i}`}
-                          className="flex items-center justify-between gap-2 text-sm"
-                        >
-                          <a
-                            href={a.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="truncate underline"
-                            title={a.name}
-                          >
-                            {a.name}
-                          </a>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() =>
-                              setAttachments((prev) =>
-                                prev.filter((_, idx) => idx !== i),
-                              )
-                            }
-                          >
-                            Remove
-                          </Button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+  const hasAnyRows = rows.length > 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const nextExam = (() => {
+    const all = datesheets.flatMap((d) =>
+      d.firstExamDate ? [{ title: d.title, date: d.firstExamDate }] : [],
+    );
+    return all
+      .filter((x) => x.date >= today)
+      .sort((a, b) => (a.date < b.date ? -1 : 1))[0];
+  })();
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex flex-col gap-3">
-                <Input
-                  placeholder="Title (optional)"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  disabled={parsing}
-                />
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Subject</TableHead>
-                      <TableHead>Date (YYYY-MM-DD)</TableHead>
-                      <TableHead>Syllabus (bullets)</TableHead>
-                      <TableHead className="w-[80px]" />
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((r, i) => (
-                      <TableRow key={r.id}>
-                        <TableCell>
-                          <Input
-                            value={r.subject}
-                            onChange={(e) =>
-                              setRow(i, 'subject', e.target.value)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={r.examDate}
-                            onChange={(e) =>
-                              setRow(i, 'examDate', e.target.value)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Textarea
-                            placeholder="One point per line"
-                            value={(r.syllabus ?? []).join('\n')}
-                            onChange={(e) =>
-                              setRow(i, 'syllabus', e.target.value.split('\n'))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => removeRow(i)}
-                          >
-                            Remove
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" onClick={addRow} variant="secondary">
-                    Add row
-                  </Button>
-                  <Button size="sm" onClick={() => void onSave('upload')}>
-                    Save datesheet
-                  </Button>
-                </div>
+  if (viewMode === 'view') {
+    return (
+      <div className="flex h-full flex-col gap-3">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">Upcoming exams</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Datesheets</span>
+              <span className="text-lg font-semibold tabular-nums">
+                {datesheets.length}
+              </span>
+            </div>
+            {nextExam && (
+              <div className="text-sm">
+                Next: {nextExam.title} on {nextExam.date}
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </div>
+          <Button size="sm" onClick={() => setViewMode('create')}>
+            <Plus className="mr-1 h-4 w-4" /> Create new
+          </Button>
         </div>
-      </TabsContent>
 
-      <TabsContent value="manual">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-3">
-              <Input
-                placeholder="Title (optional)"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Subject</TableHead>
-                    <TableHead>Date (YYYY-MM-DD)</TableHead>
-                    <TableHead>Syllabus (bullets)</TableHead>
-                    <TableHead className="w-[80px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r, i) => (
-                    <TableRow key={r.id}>
-                      <TableCell>
-                        <Input
-                          value={r.subject}
-                          onChange={(e) => setRow(i, 'subject', e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={r.examDate}
-                          onChange={(e) =>
-                            setRow(i, 'examDate', e.target.value)
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Textarea
-                          placeholder="One point per line"
-                          value={(r.syllabus ?? []).join('\n')}
-                          onChange={(e) =>
-                            setRow(i, 'syllabus', e.target.value.split('\n'))
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => removeRow(i)}
-                        >
-                          Remove
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="flex items-center gap-2">
-                <Button size="sm" onClick={addRow} variant="secondary">
-                  Add row
-                </Button>
-                <Button size="sm" onClick={() => void onSave('manual')}>
-                  Save datesheet
+        {/* Upcoming exams list */}
+        <div className="flex-1 min-h-0">
+          {upcomingItems.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center rounded-md border p-6 text-center">
+              <Calendar className="mb-2 h-8 w-8 text-muted-foreground" />
+              <div className="text-base font-medium">No upcoming exams</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Create a datesheet to see your upcoming exams here.
+              </div>
+              <div className="mt-4">
+                <Button
+                  variant="secondary"
+                  onClick={() => setViewMode('create')}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Create datesheet
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
+          ) : (
+            <div className="h-full overflow-auto">
+              <ul className="space-y-2">
+                {upcomingItems.map((item) => {
+                  const isExpanded =
+                    expandedExam === `${item.datesheetId}-${item.examDate}`;
+                  const label =
+                    item.title && item.title !== item.subject
+                      ? `${item.title}: ${item.subject}`
+                      : item.subject;
+                  return (
+                    <li
+                      key={`${item.datesheetId}-${item.examDate}`}
+                      className="rounded-md border"
+                    >
+                      <button
+                        type="button"
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50"
+                        onClick={() =>
+                          setExpandedExam((prev) =>
+                            prev === `${item.datesheetId}-${item.examDate}`
+                              ? null
+                              : `${item.datesheetId}-${item.examDate}`,
+                          )
+                        }
+                      >
+                        <span
+                          className="font-medium truncate mr-2"
+                          title={label}
+                        >
+                          {label}
+                        </span>
+                        <span className="text-sm tabular-nums text-muted-foreground">
+                          {item.examDate}
+                        </span>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-3 pb-3">
+                          {item.syllabus.length > 0 && (
+                            <ul className="list-disc pl-5 space-y-1 text-sm mb-3">
+                              {item.syllabus.map((s) => (
+                                <li key={s}>{s}</li>
+                              ))}
+                            </ul>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={async () => {
+                              await removeExam({
+                                datesheetId: item.datesheetId,
+                                subject: item.subject,
+                                examDate: item.examDate,
+                              });
+                            }}
+                            title="Delete this exam"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col gap-3">
+      {/* Header with upload area and controls */}
+      <div className="flex items-center gap-3">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => setViewMode('view')}
+          className="shrink-0"
+        >
+          <Eye className="mr-1 h-4 w-4" /> View exams
+        </Button>
+        {/* Compact upload area */}
+        <div
+          className={`flex-1 rounded-md border-2 border-dashed p-3 text-center transition-colors ${dragActive ? 'border-primary/70 bg-primary/5' : 'border-muted-foreground/30 hover:border-muted-foreground'}`}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            setDragActive(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragActive(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setDragActive(false);
+          }}
+          onDrop={async (e) => {
+            e.preventDefault();
+            setDragActive(false);
+            const files = Array.from(e.dataTransfer.files ?? []);
+            await handleFiles(files);
+          }}
+          role="button"
+          tabIndex={0}
+          onClick={() => fileInputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ')
+              fileInputRef.current?.click();
+          }}
+        >
+          <div className="flex items-center gap-3">
+            <UploadCloud className="h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 text-left">
+              <div className="text-sm font-medium">Upload datesheet</div>
+              <div className="text-xs text-muted-foreground">
+                PDF or image files
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={uploading || parsing}
+            >
+              {uploading ? 'Uploading…' : parsing ? 'Parsing…' : 'Browse'}
+            </Button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,image/*"
+            multiple
+            className="hidden"
+            onChange={async (e) => {
+              const files = Array.from(e.currentTarget.files ?? []);
+              e.currentTarget.value = '';
+              await handleFiles(files);
+            }}
+          />
+        </div>
+
+        {/* Title and actions */}
+        <Input
+          className="w-48"
+          placeholder="Title (optional)"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          disabled={parsing}
+        />
+        <Button variant="secondary" size="sm" onClick={addRow}>
+          <Plus className="mr-1 h-4 w-4" /> Add
+        </Button>
+        <Button
+          size="sm"
+          onClick={() => void onSave()}
+          disabled={uploading || parsing}
+        >
+          <IconSave className="mr-1 h-4 w-4" /> Save
+        </Button>
+      </div>
+
+      {/* Attached files (if any) */}
+      {attachments.length > 0 && (
+        <div className="rounded-md border p-2">
+          <div className="flex flex-wrap gap-2">
+            {attachments.map((a, i) => (
+              <div
+                key={`${a.url}-${i}`}
+                className="flex items-center gap-2 rounded bg-muted px-2 py-1 text-xs"
+              >
+                <FileText className="h-3 w-3" />
+                <span className="max-w-24 truncate" title={a.name}>
+                  {a.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(i)}
+                  className="hover:text-destructive"
+                >
+                  <IconX className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={parsing}
+              onClick={() => void parseFromCurrentAttachments(attachments)}
+              className="h-6 px-2 text-xs"
+            >
+              <Sparkles className="mr-1 h-3 w-3" /> Re-parse
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Main content area */}
+      <div className="flex-1 min-h-0">
+        {!hasAnyRows ? (
+          <div className="flex h-full flex-col items-center justify-center rounded-md border p-6 text-center">
+            <FileText className="mb-2 h-8 w-8 text-muted-foreground" />
+            <div className="text-base font-medium">No subjects added yet</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Upload a datesheet to auto-fill, or add rows manually.
+            </div>
+            <div className="mt-4">
+              <Button variant="secondary" onClick={addRow}>
+                <Plus className="mr-2 h-4 w-4" /> Add first row
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="h-full overflow-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-1/4">Subject</TableHead>
+                  <TableHead className="w-32">Date</TableHead>
+                  <TableHead>Syllabus</TableHead>
+                  <TableHead className="w-20" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r, i) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="p-2">
+                      <Input
+                        value={r.subject}
+                        onChange={(e) => setRow(i, 'subject', e.target.value)}
+                        placeholder="Subject"
+                        className="h-8 border border-input bg-background px-2 text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className="p-2">
+                      <Input
+                        value={r.examDate}
+                        onChange={(e) => setRow(i, 'examDate', e.target.value)}
+                        placeholder="YYYY-MM-DD"
+                        className="h-8 border border-input bg-background px-2 text-sm"
+                      />
+                    </TableCell>
+                    <TableCell className="p-2 align-top">
+                      <Textarea
+                        placeholder="One point per line"
+                        value={(r.syllabus ?? []).join('\n')}
+                        onChange={(e) =>
+                          setRow(i, 'syllabus', e.target.value.split('\n'))
+                        }
+                        className="min-h-16 border border-input bg-background px-2 py-1 text-sm resize-none"
+                      />
+                    </TableCell>
+                    <TableCell className="p-2 align-top">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeRow(i)}
+                        className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10"
+                      >
+                        <IconX className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
