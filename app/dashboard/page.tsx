@@ -42,6 +42,25 @@ export default function DashboardPage() {
     return user?.firstName || user?.fullName || user?.username || 'there';
   }, [user]);
 
+  const motivationalQuotes = [
+    'Small steps, big progress.',
+    'Progress, not perfection.',
+    'Every expert was once a beginner.',
+    'Knowledge is power.',
+    'Learn something new every day.',
+    'Success is a journey, not a destination.',
+    'The future belongs to those who learn.',
+    'Education is the key to unlock the golden door of freedom.',
+    'Invest in yourself, it pays the best interest.',
+    'Dream big, start small, act now.',
+  ];
+
+  const randomQuote = useMemo(() => {
+    return motivationalQuotes[
+      Math.floor(Math.random() * motivationalQuotes.length)
+    ];
+  }, []);
+
   if (!isLoaded || !isSignedIn) return null;
 
   return (
@@ -55,7 +74,21 @@ export default function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-3 relative">
           <SubjectPerformanceChart />
           <UpcomingExamsCard />
-          <div className="bg-muted/50 h-72 rounded-xl md:col-span-2" />
+          <Card className="md:col-span-2 h-72 overflow-hidden relative">
+            <div
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              style={{ backgroundImage: 'url(/bg.webp)' }}
+            />
+            {/* <div className="absolute inset-0 bg-black/40" /> */}
+            <CardContent className="h-full flex items-center justify-center p-6 relative z-10">
+              <blockquote
+                className="text-center font-bold tracking-tight text-4xl md:text-6xl drop-shadow-lg"
+                style={{ color: '#403c2c' }}
+              >
+                {randomQuote}
+              </blockquote>
+            </CardContent>
+          </Card>
           <div className="bg-muted/50 h-72 rounded-xl md:col-span-1" />
         </div>
       </div>
