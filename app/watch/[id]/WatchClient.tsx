@@ -66,6 +66,7 @@ export default function WatchClient({
         );
 
   useEffect(() => {
+    if (!transcript || transcript.length === 0) return;
     let mounted = true;
     const load = async () => {
       try {

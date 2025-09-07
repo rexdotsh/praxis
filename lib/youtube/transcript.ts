@@ -14,6 +14,24 @@ export type TranscriptItem = {
   lang?: string;
 };
 
+const PROXY_CONFIG = {
+  enabled: true,
+  baseUrl: process.env.PROXY_URL,
+  apiKey: process.env.PROXY_API_KEY,
+};
+
+function proxyFetch(url: string, options?: RequestInit): Promise<Response> {
+  if (!PROXY_CONFIG.enabled) {
+    return fetch(url, options);
+  }
+
+  const proxyUrl = `${PROXY_CONFIG.baseUrl}/proxy?url=${encodeURIComponent(url)}`;
+  const headers = new Headers(options?.headers);
+  headers.set('Authorization', `Bearer ${PROXY_CONFIG.apiKey}`);
+
+  return fetch(proxyUrl, { ...options, headers });
+}
+
 function getVideoId(input: string): string {
   if (input.length === 11 && /^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
   const matchId = input.match(RE_YOUTUBE);
@@ -31,7 +49,7 @@ export async function fetchTranscript(
   const protocol = opts?.disableHttps ? 'http' : 'https';
 
   const watchUrl = `${protocol}://www.youtube.com/watch?v=${videoId}`;
-  const watchRes = await fetch(watchUrl, {
+  const watchRes = await proxyFetch(watchUrl, {
     headers: {
       'User-Agent': userAgent,
       ...(lang ? { 'Accept-Language': lang } : {}),
@@ -51,7 +69,7 @@ export async function fetchTranscript(
     context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
     videoId,
   };
-  const playerRes = await fetch(playerUrl, {
+  const playerRes = await proxyFetch(playerUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -79,7 +97,7 @@ export async function fetchTranscript(
   if (opts?.disableHttps)
     transcriptUrl = transcriptUrl.replace(/^https:\/\//, 'http://');
 
-  const transcriptRes = await fetch(transcriptUrl, {
+  const transcriptRes = await proxyFetch(transcriptUrl, {
     headers: {
       'User-Agent': userAgent,
       ...(lang ? { 'Accept-Language': lang } : {}),
