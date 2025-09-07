@@ -1,6 +1,7 @@
 {
   "ignore": [
     "components/ui/**",
+    "components/ai-elements/**",
     "lib/i18n/**"
   ],
   "ignoreDependencies": [
