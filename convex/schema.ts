@@ -49,4 +49,56 @@ export default defineSchema({
     youtubeId: v.string(),
     suggestions: v.array(v.string()),
   }).index('by_youtubeId', ['youtubeId']),
+  quizzes: defineTable({
+    createdByUserId: v.id('users'),
+    videoId: v.id('videos'),
+    spec: v.object({
+      type: v.union(v.literal('last_minutes'), v.literal('last_chapter')),
+      value: v.number(),
+    }),
+    meta: v.object({
+      title: v.string(),
+      description: v.optional(v.string()),
+      channel: v.optional(v.string()),
+    }),
+    numQuestions: v.number(),
+    choicesCount: v.number(),
+    difficulty: v.union(
+      v.literal('easy'),
+      v.literal('medium'),
+      v.literal('hard'),
+    ),
+    model: v.string(),
+    status: v.union(
+      v.literal('draft'),
+      v.literal('active'),
+      v.literal('archived'),
+    ),
+  })
+    .index('by_video', ['videoId'])
+    .index('by_user', ['createdByUserId']),
+  quiz_questions: defineTable({
+    quizId: v.id('quizzes'),
+    prompt: v.string(),
+    options: v.array(v.string()),
+    correctIndex: v.number(),
+    explanation: v.optional(v.string()),
+  }).index('by_quiz', ['quizId']),
+  quiz_sessions: defineTable({
+    quizId: v.id('quizzes'),
+    userId: v.id('users'),
+    status: v.union(v.literal('in_progress'), v.literal('completed')),
+    startedAtMs: v.number(),
+    finishedAtMs: v.optional(v.number()),
+  })
+    .index('by_quiz', ['quizId'])
+    .index('by_user', ['userId']),
+  quiz_answers: defineTable({
+    sessionId: v.id('quiz_sessions'),
+    questionId: v.id('quiz_questions'),
+    selectedIndex: v.number(),
+    isCorrect: v.boolean(),
+  })
+    .index('by_session', ['sessionId'])
+    .index('by_question', ['questionId']),
 });
