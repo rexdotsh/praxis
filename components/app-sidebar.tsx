@@ -22,6 +22,7 @@ import { SignInButton, SignUpButton, useUser } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { Search } from 'lucide-react';
 
 function SidebarBrand() {
   return (
@@ -82,17 +83,34 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </div>
       </SidebarHeader>
       <SidebarSeparator className="mx-0" />
-      <SidebarContent />
-      <SidebarFooter>
-        <div className="hidden items-center justify-center group-data-[collapsible=icon]:flex">
-          <SidebarTrigger aria-label="Expand sidebar" title="Expand" />
-        </div>
+      <SidebarContent>
         {!isCollapsed && (
           <>
             <DatePicker />
             <SidebarSeparator className="mx-0" />
           </>
         )}
+        <div className={`px-1.5 ${isCollapsed ? 'mt-2' : ''}`}>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                tooltip="Search"
+                className="leading-none"
+              >
+                <a href="/search">
+                  <Search className="!size-5" />
+                  <span className="text-base">Search</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </div>
+      </SidebarContent>
+      <SidebarFooter>
+        <div className="hidden items-center justify-center group-data-[collapsible=icon]:flex">
+          <SidebarTrigger aria-label="Expand sidebar" title="Expand" />
+        </div>
         <AuthLoading>
           <div className="h-10 w-full animate-pulse rounded-md bg-muted" />
         </AuthLoading>
