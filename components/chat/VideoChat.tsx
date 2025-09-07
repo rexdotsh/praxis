@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import {
   Conversation,
@@ -41,6 +41,7 @@ import { getWindowByMinutes } from '@/lib/transcript/window';
 import type { TranscriptItem } from '@/lib/youtube/transcript';
 import { useVideoPlayer } from '@/components/player/VideoPlayerProvider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ChaptersList from './ChaptersList';
 
 type Props = {
   transcript: TranscriptItem[] | null;
@@ -75,21 +76,6 @@ export default function VideoChat({
   const player = useVideoPlayer();
   const { messages, sendMessage, status } = useChat();
   const [view, setView] = useState<'chat' | 'chapters'>('chat');
-
-  const upcomingChapters = useMemo(
-    () => chapters.filter((c) => c.startMs >= player.currentTimeMs),
-    [chapters, player.currentTimeMs],
-  );
-  const formatChapterTime = (ms: number) => {
-    const totalSeconds = Math.floor(ms / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    if (hours > 0) {
-      return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    }
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
-  };
 
   const minPastMs = 5 * 60 * 1000;
   const hasFiveMinutesPlayed = player.currentTimeMs >= minPastMs;
@@ -309,22 +295,7 @@ export default function VideoChat({
         </>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
-          <ul className="space-y-1">
-            {(chaptersSource === 'description'
-              ? chapters
-              : upcomingChapters
-            ).map((c, idx) => (
-              <li key={`${c.startMs}-${idx}`}>
-                <button
-                  type="button"
-                  onClick={() => player.seekToMs(c.startMs)}
-                  className="text-left text-sm hover:underline"
-                >
-                  {formatChapterTime(c.startMs)} — {c.title}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <ChaptersList chapters={chapters} chaptersSource={chaptersSource} />
         </div>
       )}
     </div>
