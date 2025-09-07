@@ -17,7 +17,7 @@ type Candidate = {
 };
 
 const MAX_CANDIDATES = 25;
-const FINAL_PICKS = 5;
+const FINAL_PICKS = 6;
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,9 +77,9 @@ export async function POST(req: NextRequest) {
         thumbnailUrl: v.thumbnail?.url ?? undefined,
       }));
 
-    // 3) Ask AI to pick best 5
+    // 3) Ask AI to pick best 6
     const selectionSystem =
-      'You are an educational curator. Given a refined topic, an optional learner profile (grade, exams, subjects), and a list of YouTube candidates with metadata, pick the top 5 videos that best teach the topic for this learner. Optimize for clarity, relevance to the profile, production quality, and prefer newer videos. Diversity is optional (multiple from same channel allowed). Provide very short reasons (<=140 chars). Return strict JSON with an array of {id, reason}.';
+      'You are an educational curator. Given a refined topic, an optional learner profile (grade, exams, subjects), and a list of YouTube candidates with metadata, pick the top 6 videos that best teach the topic for this learner. Optimize for clarity, relevance to the profile, production quality, and prefer newer videos. Diversity is optional (multiple from same channel allowed). Provide very short reasons (<=140 chars). Return strict JSON with an array of {id, reason}.';
     const selectionPrompt = JSON.stringify({
       refinedQuery,
       learnerProfile,
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
       parsed = { picks: object.picks.slice(0, FINAL_PICKS) };
     } catch {}
 
-    // 4) If AI fails, fallback to heuristic top 5
+    // 4) If AI fails, fallback to heuristic top 6
     const selected = (parsed?.picks ?? [])
       .map((p) => {
         const match = candidates.find((c) => c.id === p.id);

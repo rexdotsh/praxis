@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
+import { Search } from 'lucide-react';
 
 type Pick = {
   id: string;
@@ -83,84 +84,122 @@ export default function SearchPage() {
     }
   }
 
+  const hasResults = results.length > 0 || loading;
+
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="min-h-screen">
       <div
-        className={`sticky top-0 z-10 bg-background/80 backdrop-blur ${submittedQuery ? 'border-b' : ''}`}
+        className={`transition-all duration-500 ${
+          hasResults
+            ? 'sticky top-0 z-10 bg-background border-b py-4'
+            : 'flex items-center justify-center min-h-[80vh]'
+        }`}
       >
-        <div className="container mx-auto px-4 py-6">
-          <div className="mx-auto max-w-2xl">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const value = query.trim();
-                if (!value) return;
-                void runSearch(value);
-              }}
-              className="flex gap-2"
-            >
+        <div className="w-full max-w-2xl mx-auto px-6">
+          {!hasResults && (
+            <div className="text-center mb-12">
+              <h1 className="text-6xl font-semibold mb-2 tracking-tight">
+                Learn Anything
+              </h1>
+              <p className="text-lg text-muted-foreground">
+                Search millions of educational videos
+              </p>
+            </div>
+          )}
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const value = query.trim();
+              if (!value) return;
+              void runSearch(value);
+            }}
+            className="flex gap-3"
+          >
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={
-                  submittedQuery
-                    ? submittedQuery
-                    : 'Search educational videos...'
-                }
+                placeholder="Search for anything..."
                 disabled={loading}
+                className={`pl-11 transition-all duration-300 ${
+                  hasResults ? 'h-10' : 'h-14 text-lg'
+                }`}
               />
-              <Button type="submit" disabled={loading}>
-                {loading ? 'Searching…' : 'Search'}
-              </Button>
-            </form>
-          </div>
+            </div>
+            <Button
+              type="submit"
+              disabled={loading}
+              className={hasResults ? 'h-10' : 'h-14'}
+            >
+              {loading ? 'Searching...' : 'Search'}
+            </Button>
+          </form>
+
+          {submittedQuery && candidatesCount && (
+            <div className="mt-4 text-sm text-muted-foreground text-center">
+              {candidatesCount.toLocaleString()} results
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="container mx-auto px-4">
-        {results.length === 0 && !loading ? (
-          <div className="mx-auto max-w-2xl text-center text-muted-foreground">
-            Enter a topic and press Enter to search.
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {loading && (
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
           </div>
-        ) : null}
+        )}
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {results.map((p) => (
-            <Card key={p.id} className="overflow-hidden">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {results.map((pick) => (
+            <Card
+              key={pick.id}
+              className="overflow-hidden hover:shadow-md transition-shadow"
+            >
               <CardContent className="p-0">
-                {p.thumbnailUrl ? (
-                  <div className="relative aspect-video w-full">
+                {pick.thumbnailUrl && (
+                  <div className="relative aspect-video">
                     <Image
-                      src={p.thumbnailUrl}
-                      alt={p.title}
+                      src={pick.thumbnailUrl}
+                      alt={pick.title}
                       fill
-                      sizes="(max-width: 768px) 100vw, 33vw"
                       className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 33vw"
                       unoptimized
                     />
                   </div>
-                ) : null}
-                <div className="flex flex-col gap-2 p-4">
-                  <div className="text-sm text-muted-foreground">
-                    {p.channel}
+                )}
+                <div className="p-4 space-y-3">
+                  <div className="text-xs text-muted-foreground">
+                    {pick.channel}
                   </div>
-                  <div className="font-medium leading-tight">{p.title}</div>
-                  {p.reason ? (
-                    <div className="text-sm text-muted-foreground">
-                      {p.reason}
-                    </div>
-                  ) : null}
-                  <div className="flex items-center justify-between pt-2">
-                    <a
-                      href={p.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm underline"
+                  <h3 className="font-medium leading-snug line-clamp-2">
+                    {pick.title}
+                  </h3>
+                  {pick.reason && (
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {pick.reason}
+                    </p>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="flex-1"
                     >
-                      Open on YouTube
-                    </a>
-                    <Button size="sm" onClick={() => void onProceed(p)}>
-                      Proceed
+                      <a href={pick.url} target="_blank" rel="noreferrer">
+                        YouTube
+                      </a>
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => void onProceed(pick)}
+                      className="flex-1"
+                    >
+                      Select
                     </Button>
                   </div>
                 </div>
@@ -168,7 +207,22 @@ export default function SearchPage() {
             </Card>
           ))}
         </div>
+
+        {!loading && results.length === 0 && submittedQuery && (
+          <div className="text-center py-16 text-muted-foreground">
+            No results found for "{submittedQuery}"
+          </div>
+        )}
       </div>
+
+      <style jsx>{`
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
     </div>
   );
 }
