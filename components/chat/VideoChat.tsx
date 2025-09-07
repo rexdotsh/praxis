@@ -42,6 +42,7 @@ import type { TranscriptItem } from '@/lib/youtube/transcript';
 import { useVideoPlayer } from '@/components/player/VideoPlayerProvider';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ChaptersList from './ChaptersList';
+import PomodoroTimer from '@/components/study/PomodoroTimer';
 
 type Props = {
   transcript: TranscriptItem[] | null;
@@ -75,7 +76,7 @@ export default function VideoChat({
   const [contextMinutes, setContextMinutes] = useState<number>(10);
   const player = useVideoPlayer();
   const { messages, sendMessage, status } = useChat();
-  const [view, setView] = useState<'chat' | 'chapters'>('chat');
+  const [view, setView] = useState<'chat' | 'chapters' | 'study'>('chat');
 
   const minPastMs = 5 * 60 * 1000;
   const hasFiveMinutesPlayed = player.currentTimeMs >= minPastMs;
@@ -138,12 +139,13 @@ export default function VideoChat({
       )}
       <Tabs
         value={view}
-        onValueChange={(v) => setView(v as 'chat' | 'chapters')}
+        onValueChange={(v) => setView(v as 'chat' | 'chapters' | 'study')}
         className="mb-2 w-fit"
       >
         <TabsList>
           <TabsTrigger value="chat">Chat</TabsTrigger>
           <TabsTrigger value="chapters">Chapters</TabsTrigger>
+          <TabsTrigger value="study">Study Modes</TabsTrigger>
         </TabsList>
       </Tabs>
       {view === 'chat' ? (
@@ -293,9 +295,15 @@ export default function VideoChat({
             </div>
           )}
         </>
-      ) : (
+      ) : view === 'chapters' ? (
         <div className="min-h-0 flex-1 overflow-auto">
           <ChaptersList chapters={chapters} chaptersSource={chaptersSource} />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="space-y-4">
+            <PomodoroTimer />
+          </div>
         </div>
       )}
     </div>
