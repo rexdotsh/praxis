@@ -7,6 +7,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import DatesheetsForm from '@/components/datesheets/DatesheetsForm';
 
 export default function DashboardPage() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -65,9 +66,10 @@ function UpcomingExamsCard() {
   })();
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const removeExam = useMutation(api.datesheets.removeExam);
+  const [isCreating, setIsCreating] = useState(false);
 
   return (
-    <Card className="md:col-span-2 h-96">
+    <Card className={isCreating ? 'md:col-span-2' : 'md:col-span-2 h-96'}>
       <CardContent className="p-4 h-full">
         <div className="flex h-full flex-col relative">
           <div className="mb-2 flex items-center justify-between gap-4 flex-wrap">
@@ -91,13 +93,27 @@ function UpcomingExamsCard() {
                 )}
               </div>
               <div>
-                <a href="/datesheets">
-                  <Button size="sm">Create new</Button>
-                </a>
+                {isCreating ? (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setIsCreating(false)}
+                  >
+                    Cancel
+                  </Button>
+                ) : (
+                  <Button size="sm" onClick={() => setIsCreating(true)}>
+                    Create new
+                  </Button>
+                )}
               </div>
             </div>
           </div>
-          {items.length === 0 ? (
+          {isCreating ? (
+            <div className="mt-2">
+              <DatesheetsForm onSaved={() => setIsCreating(false)} />
+            </div>
+          ) : items.length === 0 ? (
             <div className="text-sm">No upcoming exams</div>
           ) : (
             <ul className="space-y-2 overflow-auto pr-1">
