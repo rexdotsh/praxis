@@ -70,7 +70,7 @@ export default function DashboardPage() {
   if (!isLoaded || !isSignedIn) return null;
 
   return (
-    <div className="flex flex-1 flex-col gap-6 p-6 pb-8">
+    <div className="flex flex-1 flex-col gap-6 p-6 pb-6">
       <div className="space-y-2">
         <div className="flex items-center gap-3">
           <h1 className="text-4xl font-bold tracking-tight">
