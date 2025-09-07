@@ -50,7 +50,7 @@ export default function DashboardPage() {
 
 function UpcomingExamsCard() {
   return (
-    <Card className="md:col-span-2 h-96">
+    <Card className="md:col-span-2 h-96 py-0">
       <CardContent className="p-4 h-full">
         <div className="h-full">
           <DatesheetsForm />

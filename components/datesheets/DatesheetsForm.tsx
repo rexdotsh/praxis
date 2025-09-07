@@ -24,6 +24,10 @@ import {
   Sparkles,
   Calendar,
   Eye,
+  Clock,
+  ChevronDown,
+  ChevronRight,
+  Trash2,
 } from 'lucide-react';
 
 type ParsedItem = {
@@ -225,24 +229,24 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
         {/* Upcoming exams list */}
         <div className="flex-1 min-h-0">
           {upcomingItems.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center rounded-md border p-6 text-center">
-              <Calendar className="mb-2 h-8 w-8 text-muted-foreground" />
-              <div className="text-base font-medium">No upcoming exams</div>
-              <div className="mt-1 text-sm text-muted-foreground">
-                Create a datesheet to see your upcoming exams here.
+            <div className="flex h-full flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 text-center">
+              <div className="rounded-full bg-muted/50 p-3 mb-4">
+                <Calendar className="h-8 w-8 text-muted-foreground" />
               </div>
-              <div className="mt-4">
-                <Button
-                  variant="secondary"
-                  onClick={() => setViewMode('create')}
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Create datesheet
-                </Button>
+              <div className="text-lg font-semibold mb-2">
+                No upcoming exams
               </div>
+              <div className="text-sm text-muted-foreground mb-6 max-w-sm">
+                Create a datesheet to track your exam schedule and see upcoming
+                exams here.
+              </div>
+              <Button onClick={() => setViewMode('create')}>
+                <Plus className="mr-2 h-4 w-4" /> Create your first datesheet
+              </Button>
             </div>
           ) : (
             <div className="h-full overflow-auto">
-              <ul className="space-y-2">
+              <div className="space-y-3">
                 {upcomingItems.map((item) => {
                   const isExpanded =
                     expandedExam === `${item.datesheetId}-${item.examDate}`;
@@ -250,14 +254,53 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
                     item.title && item.title !== item.subject
                       ? `${item.title}: ${item.subject}`
                       : item.subject;
+
+                  // Calculate days until exam
+                  const examDate = new Date(item.examDate);
+                  const today = new Date();
+                  const diffTime = examDate.getTime() - today.getTime();
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                  const isToday = diffDays === 0;
+                  const isTomorrow = diffDays === 1;
+                  const isOverdue = diffDays < 0;
+
+                  let dateDisplay = item.examDate;
+                  let dateColor = 'text-muted-foreground';
+
+                  if (isToday) {
+                    dateDisplay = 'Today';
+                    dateColor = 'text-red-600 font-semibold';
+                  } else if (isTomorrow) {
+                    dateDisplay = 'Tomorrow';
+                    dateColor = 'text-orange-600 font-semibold';
+                  } else if (isOverdue) {
+                    dateDisplay = `${Math.abs(diffDays)} days ago`;
+                    dateColor = 'text-muted-foreground line-through';
+                  } else if (diffDays <= 7) {
+                    dateDisplay = `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+                    dateColor = 'text-yellow-600 font-medium';
+                  } else if (diffDays <= 30) {
+                    dateDisplay = `${diffDays} days`;
+                    dateColor = 'text-blue-600';
+                  }
+
                   return (
-                    <li
+                    <div
                       key={`${item.datesheetId}-${item.examDate}`}
-                      className="rounded-md border"
+                      className={`rounded-lg border-2 transition-all ${
+                        isToday
+                          ? 'border-red-200 bg-red-50/50'
+                          : isTomorrow
+                            ? 'border-orange-200 bg-orange-50/50'
+                            : diffDays <= 7
+                              ? 'border-yellow-200 bg-yellow-50/50'
+                              : 'border-border bg-card hover:border-border/80'
+                      }`}
                     >
                       <button
                         type="button"
-                        className="w-full flex items-center justify-between p-3 text-left hover:bg-muted/50"
+                        className="w-full flex items-center gap-3 p-4 text-left hover:bg-muted/30 rounded-lg transition-colors"
                         onClick={() =>
                           setExpandedExam((prev) =>
                             prev === `${item.datesheetId}-${item.examDate}`
@@ -266,45 +309,92 @@ export default function DatesheetsForm({ onSaved }: { onSaved?: () => void }) {
                           )
                         }
                       >
-                        <span
-                          className="font-medium truncate mr-2"
-                          title={label}
-                        >
-                          {label}
-                        </span>
-                        <span className="text-sm tabular-nums text-muted-foreground">
-                          {item.examDate}
-                        </span>
-                      </button>
-                      {isExpanded && (
-                        <div className="px-3 pb-3">
-                          {item.syllabus.length > 0 && (
-                            <ul className="list-disc pl-5 space-y-1 text-sm mb-3">
-                              {item.syllabus.map((s) => (
-                                <li key={s}>{s}</li>
-                              ))}
-                            </ul>
+                        <div className="flex-shrink-0">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
                           )}
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={async () => {
-                              await removeExam({
-                                datesheetId: item.datesheetId,
-                                subject: item.subject,
-                                examDate: item.examDate,
-                              });
-                            }}
-                            title="Delete this exam"
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div
+                            className="font-semibold text-base truncate mb-1"
+                            title={label}
                           >
-                            Delete
-                          </Button>
+                            {label}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-3 w-3" />
+                            <span className={dateColor}>{dateDisplay}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex-shrink-0">
+                          {item.syllabus.length > 0 && (
+                            <div className="text-xs bg-muted px-2 py-1 rounded-full">
+                              {item.syllabus.length} topic
+                              {item.syllabus.length === 1 ? '' : 's'}
+                            </div>
+                          )}
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-4 pb-4 border-t border-border/50 pt-3 mt-1">
+                          {item.syllabus.length > 0 ? (
+                            <div className="mb-4">
+                              <div className="text-sm font-medium mb-2 text-muted-foreground">
+                                Syllabus Topics
+                              </div>
+                              <div className="grid gap-2">
+                                {item.syllabus.map((s, idx) => (
+                                  <div
+                                    key={s}
+                                    className="flex items-start gap-2 text-sm p-2 rounded-md bg-muted/30"
+                                  >
+                                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                      <span className="text-xs font-medium text-primary">
+                                        {idx + 1}
+                                      </span>
+                                    </div>
+                                    <span className="flex-1">{s}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground mb-4 italic">
+                              No syllabus topics specified
+                            </div>
+                          )}
+
+                          <div className="flex justify-end">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (confirm(`Delete exam for ${label}?`)) {
+                                  await removeExam({
+                                    datesheetId: item.datesheetId,
+                                    subject: item.subject,
+                                    examDate: item.examDate,
+                                  });
+                                }
+                              }}
+                              className="text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground"
+                            >
+                              <Trash2 className="mr-2 h-3 w-3" />
+                              Delete exam
+                            </Button>
+                          </div>
                         </div>
                       )}
-                    </li>
+                    </div>
                   );
                 })}
-              </ul>
+              </div>
             </div>
           )}
         </div>
