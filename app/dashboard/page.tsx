@@ -7,15 +7,6 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import DatesheetsForm from '@/components/datesheets/DatesheetsForm';
-import { Plus } from 'lucide-react';
 
 export default function DashboardPage() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -49,7 +40,7 @@ export default function DashboardPage() {
       </header>
       <div className="flex flex-1 flex-col justify-end gap-4 p-4 pt-0 pb-8">
         <div className="grid gap-4 md:grid-cols-3 relative">
-          <DashboardDatesheetsCard />
+          <div className="bg-muted/50 h-96 rounded-xl md:col-span-1" />
           <UpcomingExamsCard />
           <div className="bg-muted/50 h-72 rounded-xl md:col-span-2" />
           <div className="bg-muted/50 h-72 rounded-xl md:col-span-1" />
@@ -59,10 +50,12 @@ export default function DashboardPage() {
   );
 }
 
-function DashboardDatesheetsCard() {
+function UpcomingExamsCard() {
+  const items =
+    useQuery(api.datesheets.listUpcomingItemsByUser, { limit: 10 }) ?? [];
   const datesheets = useQuery(api.datesheets.listByUser) ?? [];
   const today = new Date().toISOString().slice(0, 10);
-  const upcoming = (() => {
+  const nextExam = (() => {
     const all = datesheets.flatMap((d) =>
       d.firstExamDate ? [{ title: d.title, date: d.firstExamDate }] : [],
     );
@@ -70,36 +63,6 @@ function DashboardDatesheetsCard() {
       .filter((x) => x.date >= today)
       .sort((a, b) => (a.date < b.date ? -1 : 1))[0];
   })();
-
-  return (
-    <Card className="md:col-span-1">
-      <CardContent className="p-4">
-        <div className="flex flex-col gap-2">
-          <div className="text-sm text-muted-foreground">Datesheets</div>
-          <div className="text-2xl font-semibold">{datesheets.length}</div>
-          <div className="text-sm">
-            {upcoming ? (
-              <span>
-                Next exam: {upcoming.title} on {upcoming.date}
-              </span>
-            ) : (
-              <span>No upcoming exams</span>
-            )}
-          </div>
-          <div>
-            <a href="/datesheets">
-              <Button size="sm">Create new</Button>
-            </a>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function UpcomingExamsCard() {
-  const items =
-    useQuery(api.datesheets.listUpcomingItemsByUser, { limit: 10 }) ?? [];
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const removeExam = useMutation(api.datesheets.removeExam);
 
@@ -107,8 +70,32 @@ function UpcomingExamsCard() {
     <Card className="md:col-span-2 h-96">
       <CardContent className="p-4 h-full">
         <div className="flex h-full flex-col relative">
-          <div className="mb-2 text-sm text-muted-foreground">
-            Upcoming exams
+          <div className="mb-2 flex items-center justify-between gap-4 flex-wrap">
+            <div className="text-sm text-muted-foreground">Upcoming exams</div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Datesheets
+                </span>
+                <span className="text-lg font-semibold tabular-nums">
+                  {datesheets.length}
+                </span>
+              </div>
+              <div className="text-sm">
+                {nextExam ? (
+                  <span>
+                    Next exam: {nextExam.title} on {nextExam.date}
+                  </span>
+                ) : (
+                  <span>No upcoming exams</span>
+                )}
+              </div>
+              <div>
+                <a href="/datesheets">
+                  <Button size="sm">Create new</Button>
+                </a>
+              </div>
+            </div>
           </div>
           {items.length === 0 ? (
             <div className="text-sm">No upcoming exams</div>
@@ -171,23 +158,6 @@ function UpcomingExamsCard() {
               })}
             </ul>
           )}
-
-          {/* plus button*/}
-          <div className="absolute right-7 bottom-2">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button size="icon" className="h-12 w-12 rounded-full shadow">
-                  <Plus className="h-6 w-6" />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl xl:max-w-5xl max-h-[85vh] overflow-y-auto p-4 sm:p-6">
-                <DialogHeader>
-                  <DialogTitle>Upload syllabus / datesheet</DialogTitle>
-                </DialogHeader>
-                <DatesheetsForm onSaved={() => location.reload()} />
-              </DialogContent>
-            </Dialog>
-          </div>
         </div>
       </CardContent>
     </Card>
