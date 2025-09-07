@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useQuery } from 'convex/react';
+import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { Calendar } from '@/components/ui/calendar';
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar';
@@ -62,12 +62,14 @@ function buildCalendarModifiers(
 }
 
 export function DatePicker() {
-  const upcomingExams = useQuery(api.datesheets.listUpcomingItemsByUser, {
-    limit: 50,
-  });
+  const { isAuthenticated } = useConvexAuth();
+  const upcomingExams = useQuery(
+    api.datesheets.listUpcomingItemsByUser,
+    isAuthenticated ? { limit: 50 } : 'skip',
+  );
 
   const calendarModifiers = useMemo(
-    () => buildCalendarModifiers(upcomingExams as any),
+    () => buildCalendarModifiers(upcomingExams),
     [upcomingExams],
   );
 
