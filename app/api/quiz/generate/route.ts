@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       "No 'All of the above'/'None of the above'. No overlaps.",
       `Match "${difficulty}" difficulty. Use exact terms/values from the excerpt (numbers, units, names).`,
       'Explanation: 1 short sentence citing the excerpt.',
+      'Do not mention the transcript or that the questions were generated from it.',
     ].join('\n');
 
     const prompt = JSON.stringify({
